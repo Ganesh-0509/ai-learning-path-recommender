@@ -12,12 +12,17 @@ import {NextResponse, type NextRequest} from 'next/server';
  */
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  const isDev = process.env.NODE_ENV !== 'production';
   const csp = [
     "default-src 'self'",
     // 'strict-dynamic' trusts scripts loaded BY a nonce'd script — needed
     // for Next.js's own async chunk loading — without opening script-src to
-    // arbitrary origins.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // arbitrary origins. 'unsafe-eval' is added ONLY in dev: React's
+    // development mode uses eval() for debugging features (reconstructing
+    // component stacks, Turbopack HMR) and is blocked outright without it —
+    // React itself guarantees it "will never use eval() in production
+    // mode," so this never reaches the built/deployed app.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
