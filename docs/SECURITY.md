@@ -31,18 +31,40 @@ non-goals); a scripted client hitting the API directly instead of through the UI
 | Malformed input | Every API route validates its body/query with a `zod` schema before touching business logic; invalid input returns 400 with a generic error, never a stack trace. |
 | SQL injection | Prisma ORM only, parameterized queries; no raw SQL string concatenation anywhere in the codebase. |
 | XSS | React's default JSX escaping for all learner-supplied text; `dangerouslySetInnerHTML` is not used. Markdown rendering of LLM output (if any) goes through a sanitizing renderer, not raw HTML injection. |
-| Prompt injection | Learner free text is passed to the LLM as clearly delimited user content within a fixed system prompt; the system prompt instructs the model to treat the delimited block as data, not instructions, and recommendations are always constrained to the retrieved-evidence set (§4.3 in TRD) — the model can't be talked into recommending something outside the catalog/graph regardless of what the prompt injection asks for. |
-| Resource exhaustion | Rate limiting (in-memory token bucket) on `/api/chat`, `/api/recommend`, `/api/progress`; documented as a single-instance limitation appropriate to a hackathon deploy, not a production DDoS defense. |
+| Prompt injection | Learner free text (`goal`, chat `message`) is wrapped in explicit `<<<LEARNER_GOAL_START>>>...<<<LEARNER_GOAL_END>>>`-style markers, separated from server-computed evidence, with the system prompt explicitly instructing the model to treat text inside those markers as data to reference, never as instructions to follow — even if it reads like one. `lib/explain.ts` additionally pins the course identity as fixed server-side ("the course you are explaining is exactly X") so the learner's goal text can't redirect which course gets praised. **This was not a design assumption — an adversarial Playwright spec (`tests/e2e/prompt-injection.spec.ts`) initially caught a real failure**: an injected goal got `/api/explain` to claim an unrelated course ("Blockchain Development") was "a perfect match," before the explicit delimiters/course-pinning above were added. Verified fixed across 3 repeated runs against the non-deterministic local LLM. |
+| Resource exhaustion | In-memory token-bucket rate limiting (`lib/rate-limit.ts`) on `/api/chat`, `/api/recommend`, `/api/progress`, `/api/explain` — 20 requests/minute, keyed by learner id (falling back to IP before a profile exists) so concurrent different learners never contend for the same bucket. Documented as a single-instance limitation (state resets on redeploy, doesn't share across instances), not a production DDoS defense. |
 | Secret leakage | `.env` gitignored from day one (already in `.gitignore`); `.env.example` ships only placeholder values; `LLM_HOST`/`LLM_MODEL`/`DATABASE_URL` are the only configurable values and none of them are secrets in this local-model architecture (no API keys exist to leak). |
 
 ## 3. Security headers
 
-Set in `next.config.js` / middleware for every response:
+Static headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) are set in
+`next.config.ts`'s `headers()`. `Content-Security-Policy` is **not** static — it's set per-request
+in `proxy.ts` with a fresh nonce, because Next.js's App Router delivers its React Server
+Components payload via inline `<script>` tags on every page render
+(`self.__next_f.push(...)`) — required for hydration, not something the app can avoid — so a bare
+`script-src 'self'` blocks the app from ever becoming interactive. `proxy.ts` generates a random
+nonce per request, threads it into the CSP header (`script-src 'self' 'nonce-<value>'
+'strict-dynamic'`), and Next.js automatically applies that nonce to its own generated inline
+scripts. `style-src` keeps `'unsafe-inline'` for React's inline `style` attribute (the dashboard
+progress bar's dynamic width) — the meaningful attack surface (script injection) is what stays
+strict. `app/page.tsx` and `app/dashboard/page.tsx` are forced dynamic
+(`export const dynamic = 'force-dynamic'`) — a statically prerendered page's headers are computed
+once at build time and reused for every request, which would silently serve a stale, nonce-less
+CSP and break hydration; this was caught by the real-browser onboarding Playwright spec (the
+"Send" button never became enabled — React had never hydrated), not by a manual check.
 
-- `Content-Security-Policy` — restrict script/style/connect sources to self.
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `Referrer-Policy: strict-origin-when-cross-origin`
+Full CSP:
+```
+default-src 'self';
+script-src 'self' 'nonce-<per-request>' 'strict-dynamic';
+style-src 'self' 'unsafe-inline';
+img-src 'self' data:;
+font-src 'self';
+connect-src 'self';
+frame-ancestors 'none';
+base-uri 'self';
+form-action 'self';
+```
 
 ## 4. Dependency hygiene
 

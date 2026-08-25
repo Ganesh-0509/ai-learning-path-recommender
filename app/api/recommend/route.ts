@@ -8,6 +8,7 @@ import {
   getFeedbackCounts,
 } from '@/lib/courses';
 import {getLearnerIdFromRequest} from '@/lib/session';
+import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
 import type {Level} from '@/lib/types';
 
 // SRS FR-3: recommendation engine. Ranks the catalog by similarity to the
@@ -21,6 +22,20 @@ export async function GET(request: NextRequest) {
   const learnerId = getLearnerIdFromRequest(request);
   if (!learnerId) {
     return NextResponse.json({error: 'No profile yet.'}, {status: 404});
+  }
+
+  const rateLimit = checkRateLimit(
+    'recommend',
+    getRateLimitKey(request, learnerId),
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {error: 'Too many requests. Please slow down.'},
+      {
+        status: 429,
+        headers: {'Retry-After': String(rateLimit.retryAfterSeconds)},
+      },
+    );
   }
 
   const learner = await db.learner.findUnique({where: {id: learnerId}});

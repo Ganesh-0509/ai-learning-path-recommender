@@ -1,5 +1,9 @@
 import DashboardView from '@/components/Dashboard/DashboardView';
 
+// See app/page.tsx — same reason: a static page would serve a stale,
+// nonce-less CSP from proxy.ts and break hydration.
+export const dynamic = 'force-dynamic';
+
 export default function DashboardPage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-6 bg-zinc-50 px-6 py-8 sm:py-16 dark:bg-zinc-950">

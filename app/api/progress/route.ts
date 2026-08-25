@@ -2,6 +2,7 @@ import {NextResponse, type NextRequest} from 'next/server';
 import {z} from 'zod';
 import {db} from '@/lib/db';
 import {getLearnerIdFromRequest} from '@/lib/session';
+import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
 
 // SRS FR-6.5: mark a course complete / give feedback. This is the write side
 // of the feedback loop — FR-4.4 (path regeneration) happens naturally on the
@@ -18,6 +19,20 @@ export async function POST(request: NextRequest) {
   const learnerId = getLearnerIdFromRequest(request);
   if (!learnerId) {
     return NextResponse.json({error: 'No profile yet.'}, {status: 404});
+  }
+
+  const rateLimit = checkRateLimit(
+    'progress',
+    getRateLimitKey(request, learnerId),
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {error: 'Too many requests. Please slow down.'},
+      {
+        status: 429,
+        headers: {'Retry-After': String(rateLimit.retryAfterSeconds)},
+      },
+    );
   }
 
   const body: unknown = await request.json().catch(() => null);

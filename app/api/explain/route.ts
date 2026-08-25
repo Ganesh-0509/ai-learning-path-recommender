@@ -5,6 +5,7 @@ import {embed, cosineSimilarity} from '@/lib/embeddings';
 import {loadCourseMap} from '@/lib/courses';
 import {buildExplainInput, explainRecommendation} from '@/lib/explain';
 import {getLearnerIdFromRequest} from '@/lib/session';
+import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
 import {LEVEL_RANK, type Level} from '@/lib/types';
 
 // SRS FR-5.1: "why was this course recommended" — grounded in the same
@@ -16,6 +17,20 @@ export async function POST(request: NextRequest) {
   const learnerId = getLearnerIdFromRequest(request);
   if (!learnerId) {
     return NextResponse.json({error: 'No profile yet.'}, {status: 404});
+  }
+
+  const rateLimit = checkRateLimit(
+    'explain',
+    getRateLimitKey(request, learnerId),
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {error: 'Too many requests. Please slow down.'},
+      {
+        status: 429,
+        headers: {'Retry-After': String(rateLimit.retryAfterSeconds)},
+      },
+    );
   }
 
   const body: unknown = await request.json().catch(() => null);

@@ -11,6 +11,7 @@ import {
   getFeedbackCounts,
 } from '@/lib/courses';
 import {getLearnerIdFromRequest, setLearnerIdCookie} from '@/lib/session';
+import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
 import type {Level} from '@/lib/types';
 
 // SRS FR-1: conversational intake. Extracts structured intent from the
@@ -48,6 +49,18 @@ export async function POST(request: NextRequest) {
   const {message, history} = parsed.data;
 
   const learnerId = getLearnerIdFromRequest(request);
+
+  const rateLimit = checkRateLimit('chat', getRateLimitKey(request, learnerId));
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {error: 'Too many requests. Please slow down.'},
+      {
+        status: 429,
+        headers: {'Retry-After': String(rateLimit.retryAfterSeconds)},
+      },
+    );
+  }
+
   const existing = learnerId
     ? await db.learner.findUnique({where: {id: learnerId}})
     : null;
