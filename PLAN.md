@@ -184,9 +184,15 @@ spec and its input-validation/authz pass the same day (see §9, §10).
   p95=32s — Ollama serializes one model, so this measures "does concurrent load corrupt state,"
   not LLM-level parallelism; the latency itself is documented evidence for the solution doc, not
   a hidden number).
-- **Day 6 (Aug 30):** Deploy to Render, write README with local setup + execution steps, run
-  full Playwright suite (functional + stress) against the deployed URL, record 3-5 min demo
-  video, finalize solution documentation (PDF/PPT).
+- **Day 6 (Aug 30) — deployment decision made, demo video remaining.** Evaluated Render (needs a
+  paid tier for Ollama's RAM) and Hugging Face Spaces (Docker Spaces require PRO, confirmed from
+  HF's own docs) — both prepared as real, tested artifacts (`render.yaml`;
+  `Dockerfile`/`docker-entrypoint.sh`, built and run locally end-to-end successfully) but not
+  deployed, given a hard zero-budget constraint. Landed on two free access paths used together:
+  local setup (guidelines explicitly accept this in place of a deployed URL) plus an on-demand
+  public URL via Cloudflare Tunnel (`npm run tunnel`, free, no account, verified working
+  end-to-end including a real API round trip) for whenever live access is wanted. See
+  `docs/DEPLOYMENT.md` for the full evaluation. Still open: record the demo video.
 - **Aug 31 (buffer):** Final review of all 5 deliverables, submit before 11:59pm IST.
 
 ## 6. Deliverables checklist (all 5 required)

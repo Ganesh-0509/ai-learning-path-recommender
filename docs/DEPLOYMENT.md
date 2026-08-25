@@ -1,57 +1,54 @@
-# Deployment Guide (Render)
+# Deployment
 
-`render.yaml` (repo root) is a Render Blueprint defining both services this app needs — see
-`docs/TRD.md` §7 for why it's two services, not one. This doc is the human steps around it: things
-only an account holder can do (create the account, authorize the spend, click deploy).
+**Decision (2026-08-25): no paid hosting.** Every option that can run the LLM continuously —
+Render, Hugging Face Spaces (Docker), Fly.io, Railway — requires a paid tier; that's not a
+workaround-able limitation, it's how those platforms price persistent compute. Given a hard
+zero-budget constraint, this project uses two genuinely free access paths together, so there's
+always a working way in regardless of whether a live URL happens to be up at the moment someone
+checks:
 
-## What gets created
+1. **Local setup** (always available) — `README.md`'s "Local setup" section, which the
+   submission guidelines explicitly accept in place of a deployed URL: *"If not deployed, provide
+   clear instructions for local setup and execution."*
+2. **On-demand public URL via Cloudflare Tunnel** (when the machine is running) — free, no
+   account, no card, gives a real `https://` URL in seconds. Use this for the demo video and for
+   any window where live access matters; fall back to #1 the rest of the time.
 
-| Service | Type | Plan | Why |
-|---|---|---|---|
-| `learning-path-web` | Web service (Node) | Starter | Runs the Next.js app; Starter is the cheapest plan with a persistent disk (needed for the SQLite file). |
-| `learning-path-llm` | Private service (Docker) | Standard | Runs Ollama + `llama3.2:3b`. Needs Standard (not Starter) for enough RAM — see `PLAN.md` §8's note on why the free/Starter tier isn't enough for a 3B model. |
+## Using the tunnel
 
-Both plans cost money on a monthly basis (billed while the services exist, not per-request). This
-is real spend — the reason this step needed sign-off rather than being run automatically.
+```bash
+# Terminal 1 — the app (dev or production build, either works)
+npm run dev
+# or: npm run build && npm run start
 
-## Steps
+# Terminal 2 — the tunnel
+npm run tunnel
+```
 
-1. **Create a Render account** (or sign in) at [render.com](https://render.com) — this has to be
-   done by a human; an AI agent can't create accounts.
-2. **New → Blueprint**, connect the `Ganesh-0509/ai-learning-path-recommender` GitHub repo. Render
-   reads `render.yaml` from the repo root and shows both services it will create — review the
-   plans/cost shown before confirming.
-3. Render provisions both services and links them via the internal-network env var
-   (`LLM_HOST`) that `render.yaml` sets up. First deploy will take longer than usual: the Ollama
-   service pulls the ~2GB model on first boot before it can serve anything.
-4. **Verify `LLM_HOST` actually resolved.** Render Blueprint's `fromService` linking syntax is the
-   part of `render.yaml` most likely to need a manual tweak on a first deploy — if the web
-   service's logs show it can't reach Ollama, check the `learning-path-llm` service's dashboard
-   page for its actual internal address and set `LLM_HOST` on `learning-path-web` directly if
-   the automatic linking didn't resolve as expected.
-5. Once both services show "Live," open the web service's URL and run through the demo flow
-   (chat → dashboard → explain → mark complete) to confirm it works end to end before recording
-   the demo video or submitting.
-6. **Add the URL** to `README.md`'s "Deployment" section and to the submission form.
+`npm run tunnel` prints a URL like `https://some-words-here.trycloudflare.com` — that's live and
+publicly reachable for as long as both terminals stay open. It's a fresh random URL each time
+it's started (no account = no stable custom domain), so share whichever one is current, not one
+from a previous run.
 
-## If the Ollama service's cost/RAM requirement is a blocker
+**Requires `cloudflared` installed once** (already done on this machine via
+`winget install --id Cloudflare.cloudflared -e`) — on a machine without it, install it from
+[Cloudflare's docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+first. Verified end-to-end on 2026-08-25: app running locally, tunnel started, public URL reached
+`/`, and a real API request (`POST /api/profile`) round-tripped through the tunnel correctly.
 
-Options, in order of how much they preserve the "local model" architecture:
+## What was evaluated and ruled out, and why
 
-1. **Pull a smaller model** instead of `llama3.2:3b` — e.g. `qwen2.5:0.5b` (much smaller, weaker
-   reasoning/explanation quality) or `qwen2.5:1.5b`. Update `render.yaml`'s `dockerCommand` and
-   `.env`'s `LLM_MODEL` to match, and re-verify the explainability/prompt-injection Playwright
-   specs still pass against the smaller model before relying on it.
-2. **Run Ollama on a different always-on machine you control** (a home server, a cheap VPS) and
-   point `LLM_HOST` at it — still self-hosted/local-model, just not colocated with the web
-   service. Requires that machine to be reachable from Render, which usually means exposing it
-   through a tunnel (e.g. Cloudflare Tunnel, Tailscale) rather than a raw public port.
-3. Deploy only the web service and demo the LLM-dependent features against a local `ollama serve`
-   during the recorded demo/live walkthrough, with the deployed URL serving the non-LLM parts
-   (dashboard structure, static content) — a fallback, not the intended architecture, and worth
-   noting explicitly in the solution documentation if used.
+| Option | Verdict | Why |
+|---|---|---|
+| Render (2-service Blueprint, `render.yaml`) | Prepared, not used | Needs a paid Standard-tier private service for Ollama's RAM (`llama3.2:3b` needs ~4-6GB; Render's free tier caps at 512MB). |
+| Hugging Face Spaces (Docker, `Dockerfile`) | Prepared, built, run, and verified locally — not deployed | HF's free tier only allows Static Spaces; any Docker/Gradio (compute) Space requires a PRO plan ($9/mo), confirmed from HF's own docs. |
+| Oracle Cloud "Always Free" (24GB RAM, genuinely free forever) | Considered, declined | Would actually fit the workload for $0 ongoing, but requires a credit card at signup for identity verification — declined given the zero-payment constraint, even though the free-tier resources themselves aren't charged. |
 
-## Local setup remains fully unaffected
+## What's still here and verified working, for later
 
-None of the above changes local development — `README.md`'s existing "Local setup" section
-(`npm run dev` + a locally running `ollama serve`) works regardless of what's decided here.
+- **`Dockerfile` + `docker-entrypoint.sh` + `.dockerignore`** — a single container running both
+  Ollama and the Next.js app, built with `docker build .` and run with `docker run` on this
+  machine: model pull, Prisma migration, catalog seeding, and `npm run start` all completed
+  successfully, and a smoke request (`POST /api/profile`) returned a correct response. If a free,
+  always-on, sufficient-RAM host becomes available later, this image is ready to push to it.
+- **`render.yaml`** — the two-service Blueprint, ready if a paid Render deploy is ever wanted.

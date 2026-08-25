@@ -18,7 +18,8 @@
     "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
     "test:e2e": "playwright test tests/e2e",
     "test:stress": "playwright test tests/stress",
-    "test": "npm run test:e2e && npm run test:stress"
+    "test": "npm run test:e2e && npm run test:stress",
+    "tunnel": "cloudflared tunnel --url http://localhost:3000"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",

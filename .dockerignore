@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+archive_2026-08-25
+test-results
+playwright-report
+blob-report
+.env
+.env.local
+*.db
+*.db-journal
+.claude

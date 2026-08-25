@@ -86,9 +86,19 @@ npm run typecheck     # tsc --noEmit
 
 ## Deployment
 
-Render Blueprint (`render.yaml`) is ready — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for
-the steps and [`docs/TRD.md`](docs/TRD.md) §7 for the two-service architecture (Next.js web
-service + a private Ollama service). Deployed URL will be added here once live.
+No paid hosting is used — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for why (every option
+that can run the LLM continuously requires a paid tier). Two free access paths instead:
+
+1. **This "Local setup" section above** — always available, and explicitly accepted by the
+   submission guidelines in place of a deployed URL.
+2. **An on-demand public URL via Cloudflare Tunnel**, free and no account required:
+   ```bash
+   npm run dev        # terminal 1
+   npm run tunnel      # terminal 2 — prints a live https://*.trycloudflare.com URL
+   ```
+
+`render.yaml` and `Dockerfile` are also included, prepared and verified working (see
+`docs/DEPLOYMENT.md`), in case a free always-on host becomes available later.
 
 ## Project structure
 

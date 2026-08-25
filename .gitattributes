@@ -1,0 +1,4 @@
+# docker-entrypoint.sh runs inside a Linux container — CRLF line endings
+# (which Windows' git autocrlf would otherwise introduce on checkout) break
+# its shebang line inside Docker. Force LF regardless of platform.
+*.sh text eol=lf
