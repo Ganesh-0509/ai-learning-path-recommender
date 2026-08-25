@@ -50,6 +50,7 @@ async function main() {
       create: {
         id: course.id,
         title: course.title,
+        category: course.category,
         description: course.description,
         level: course.level,
         skillsTaught: JSON.stringify(course.skillsTaught),
@@ -58,6 +59,7 @@ async function main() {
       },
       update: {
         title: course.title,
+        category: course.category,
         description: course.description,
         level: course.level,
         skillsTaught: JSON.stringify(course.skillsTaught),
