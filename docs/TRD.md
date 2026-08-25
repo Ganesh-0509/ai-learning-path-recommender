@@ -112,10 +112,27 @@ retrieved evidence.
 DATABASE_URL="file:./dev.db"
 LLM_HOST="http://localhost:11434"
 LLM_MODEL="llama3.2:3b"
+EMBEDDING_MODEL="Xenova/all-MiniLM-L6-v2"
 ```
 
 No vendor-branded environment variable names are used anywhere in this project (see `PLAN.md`
 §3a).
+
+## 6a. Catalog generation vs. DB seeding (two separate scripts, on purpose)
+
+`scripts/generate-course-catalog.ts` is a **dev-time, rerun-on-demand** tool: it mines
+`archive_2026-08-25/train.csv`, makes one local-LLM call per course category (not per course —
+batching lets the model judge difficulty *relative to its own category*, which produces more
+coherent prerequisite chains than 80 independent judgments) to assign level/description/skills,
+builds the prerequisite graph deterministically from those levels (§4.2), computes embeddings,
+and writes the result to `data/courses.seed.json`, which is committed to the repo.
+
+`scripts/seed-db.ts` is the **deploy-time** step: it only reads that already-generated,
+already-validated JSON and upserts it into the database — no LLM call, no embedding computation,
+no dependency on Ollama being reachable. This is deliberate: a deploy build should not depend on
+a multi-minute local-model inference pass succeeding, and course catalog data shouldn't change on
+every deploy anyway. Re-run `generate-course-catalog.ts` and commit the updated
+`courses.seed.json` only when the dataset or the metadata prompt changes.
 
 ## 7. Deployment
 

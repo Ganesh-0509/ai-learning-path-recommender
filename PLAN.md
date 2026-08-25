@@ -111,19 +111,32 @@ C:\hcl\
     Dashboard/
   lib/
     db.ts
-    embeddings.ts
+    embeddings.ts             local sentence-embedding model, no vendor API
+    llm.ts                   local Ollama client, no vendor API
     recommend.ts
     prereq-graph.ts
-    llm.ts                   local Ollama client, no vendor API
   data/
-    courses.seed.json        mined from archive_2026-08-25/train.csv
-    prereq-graph.json
+    courses.seed.json        generated once by scripts/generate-course-catalog.ts, committed
   prisma/
     schema.prisma
   scripts/
-    seed-courses.ts          mines train.csv, runs local-LLM metadata pass, embeds, writes seed json
+    lib/
+      mine-train-csv.ts       parses archive_2026-08-25/train.csv
+      course-categories.ts    deterministic course -> category lookup (not an LLM call)
+      slugify.ts
+    generate-course-catalog.ts  dev-time only: mines CSV, one local-LLM pass per
+                                 category for level/description/skills, builds
+                                 prerequisites deterministically, embeds, writes
+                                 data/courses.seed.json — NOT run at deploy time
+    seed-db.ts                fast + deterministic: reads courses.seed.json,
+                               upserts into the DB — this IS what runs at deploy time
   public/
 ```
+
+Prerequisites live directly on each `Course` row (`prerequisites: string[]` of course ids) rather
+than in a separate graph file — `lib/prereq-graph.ts` builds the in-memory adjacency it needs from
+`Course` rows at request time, so a standalone `prereq-graph.json` would just be a stale
+duplicate.
 
 ## 5. Day-by-day plan (Aug 25 → Aug 31 IST)
 

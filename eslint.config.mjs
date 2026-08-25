@@ -30,6 +30,21 @@ const eslintConfig = defineConfig([
       'no-console': ['warn', {allow: ['warn', 'error']}],
     },
   },
+  {
+    // node:test's `test()` returns a Promise by design (its own concurrency
+    // model), intentionally unawaited at the top level of a test file.
+    files: ['tests/unit/**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+    },
+  },
+  {
+    // scripts/ are dev-time CLI tools — console output IS their interface.
+    files: ['scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
   globalIgnores([
     '.next/**',
     'out/**',

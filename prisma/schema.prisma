@@ -15,6 +15,9 @@ datasource db {
 model Course {
   id            String   @id
   title         String
+  /// Deterministic classification, not an LLM judgment — see
+  /// scripts/lib/course-categories.ts.
+  category      String
   description   String
   level         Level
   /// JSON-encoded string[] of skills this course teaches.
@@ -29,6 +32,7 @@ model Course {
   progress Progress[]
 
   @@index([level])
+  @@index([category])
 }
 
 enum Level {
