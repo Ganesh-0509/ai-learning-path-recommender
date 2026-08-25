@@ -6,7 +6,7 @@ import {mineCourses} from './lib/mine-train-csv';
 import {categoryFor} from './lib/course-categories';
 import {slugify} from './lib/slugify';
 import {chatStructured} from '../lib/llm';
-import {embed} from '../lib/embeddings';
+import {embed, cosineSimilarity} from '../lib/embeddings';
 
 /**
  * One-time (rerun-on-demand) build tool: mines the Round 1 dataset, runs a
@@ -152,8 +152,21 @@ async function classifyCategory(
   return result.courses;
 }
 
+/**
+ * Picks prerequisites from the nearest non-empty lower level tier *within the
+ * same category*, ranked by embedding similarity to the course itself — not
+ * an arbitrary first-N pick.
+ *
+ * Category alone isn't a fine enough grouping: "Programming Fundamentals"
+ * spans Python, JavaScript, C++, Go, etc., so a first-N pick was assigning
+ * "Advanced Python Development" a prerequisite of "Modern JavaScript ES6
+ * Plus" — same category, wrong subject. Embedding similarity naturally
+ * clusters same-subject courses together even inside one coarse category,
+ * without hand-splitting every category by language (PLAN.md §8).
+ */
 function buildPrerequisites(
   coursesInCategory: {id: string; level: CourseMetadata['level']}[],
+  embeddingById: ReadonlyMap<string, number[]>,
 ): Map<string, string[]> {
   const byLevel = new Map<number, string[]>();
   for (const course of coursesInCategory) {
@@ -166,14 +179,33 @@ function buildPrerequisites(
   const prerequisites = new Map<string, string[]>();
   for (const course of coursesInCategory) {
     const rank = LEVEL_RANK[course.level];
-    // Walk down to the nearest non-empty lower tier so an ADVANCED course in a
-    // category with no INTERMEDIATE entry still gets a sensible prerequisite.
     let lowerRank = rank - 1;
     while (lowerRank >= 0 && !byLevel.get(lowerRank)?.length) {
       lowerRank--;
     }
     const lowerTier = lowerRank >= 0 ? (byLevel.get(lowerRank) ?? []) : [];
-    prerequisites.set(course.id, lowerTier.slice(0, 2));
+
+    const courseEmbedding = embeddingById.get(course.id);
+    if (!courseEmbedding) {
+      throw new Error(`Missing embedding for course id "${course.id}"`);
+    }
+    const ranked = lowerTier
+      .map(candidateId => {
+        const candidateEmbedding = embeddingById.get(candidateId);
+        if (!candidateEmbedding) {
+          throw new Error(`Missing embedding for course id "${candidateId}"`);
+        }
+        return {
+          id: candidateId,
+          similarity: cosineSimilarity(courseEmbedding, candidateEmbedding),
+        };
+      })
+      .sort((a, b) => b.similarity - a.similarity);
+
+    prerequisites.set(
+      course.id,
+      ranked.slice(0, 2).map(r => r.id),
+    );
   }
   return prerequisites;
 }
@@ -212,6 +244,19 @@ async function main() {
     }
   }
 
+  // Embeddings are computed before prerequisites — buildPrerequisites needs
+  // them to rank same-category candidates by subject relevance.
+  const embeddingById = new Map<string, number[]>();
+  for (const course of withIds) {
+    const metadata = metadataById.get(course.id);
+    if (!metadata) {
+      throw new Error(`Missing LLM metadata for course id "${course.id}"`);
+    }
+    const embeddingText = `${course.title}. ${metadata.description} Skills: ${metadata.skillsTaught.join(', ')}.`;
+    console.log(`Embedding "${course.title}" ...`);
+    embeddingById.set(course.id, await embed(embeddingText));
+  }
+
   const seeded: SeededCourse[] = [];
   for (const [category, courses] of byCategory) {
     const levels = courses.map(c => {
@@ -221,16 +266,17 @@ async function main() {
       }
       return {id: c.id, level: metadata.level};
     });
-    const prerequisites = buildPrerequisites(levels);
+    const prerequisites = buildPrerequisites(levels, embeddingById);
 
     for (const course of courses) {
       const metadata = metadataById.get(course.id);
       if (!metadata) {
         throw new Error(`Missing LLM metadata for course id "${course.id}"`);
       }
-      const embeddingText = `${course.title}. ${metadata.description} Skills: ${metadata.skillsTaught.join(', ')}.`;
-      console.log(`Embedding "${course.title}" ...`);
-      const embedding = await embed(embeddingText);
+      const embedding = embeddingById.get(course.id);
+      if (!embedding) {
+        throw new Error(`Missing embedding for course id "${course.id}"`);
+      }
 
       seeded.push({
         ...metadata,

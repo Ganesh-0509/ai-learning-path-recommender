@@ -1,9 +1,20 @@
-import {test, expect} from '@playwright/test';
+import {test, expect, type Page} from '@playwright/test';
 
 // SRS FR-1/FR-2: the actual chat UI, not just the API — a learner states a
 // goal in natural language and the profile gets created from extracted
 // intent. This one exercises the real local LLM (lib/intent.ts via
-// /api/chat), so it's slower than the API-layer specs.
+// /api/chat), so it's slower than the API-layer specs, and the model's
+// response is genuinely non-deterministic turn-to-turn.
+
+async function sendAndWaitForReply(page: Page, message: string) {
+  await page.getByLabel('Message').fill(message);
+  await page.getByRole('button', {name: 'Send'}).click();
+  // "Thinking…" shows while the real (slow) local-LLM round trip is in
+  // flight; wait for it to clear rather than asserting on bubble count/index,
+  // which would race ahead and match the user's own echoed message instead.
+  await expect(page.getByText('Thinking…')).toBeVisible();
+  await expect(page.getByText('Thinking…')).toBeHidden({timeout: 90_000});
+}
 
 test('a learner can state a goal through chat and reach the dashboard', async ({
   page,
@@ -13,19 +24,25 @@ test('a learner can state a goal through chat and reach the dashboard', async ({
     "Tell me what you're trying to learn",
   );
 
-  const input = page.getByLabel('Message');
-  await input.fill('I want to become a backend developer using Node.js');
-  await page.getByRole('button', {name: 'Send'}).click();
-
-  // The assistant's reply is the second bubble in the log, appended after a
-  // real (slow) local-LLM round trip.
-  await expect(page.getByRole('log').locator('div').nth(1)).not.toBeEmpty({
-    timeout: 90_000,
-  });
+  await sendAndWaitForReply(
+    page,
+    'I want to become a backend developer using Node.js',
+  );
 
   const dashboardLink = page.getByRole('link', {
     name: /view your learning path/i,
   });
+
+  // FR-1.3: the assistant may reasonably ask one clarifying question before
+  // it has enough to set a goal — if so, answer it and expect the path to
+  // unblock on the next turn, rather than assuming the goal lands in one shot.
+  if (!(await dashboardLink.isVisible())) {
+    await sendAndWaitForReply(
+      page,
+      "I'm a complete beginner with some general programming knowledge.",
+    );
+  }
+
   await expect(dashboardLink).toBeVisible({timeout: 5_000});
   await dashboardLink.click();
   await expect(page).toHaveURL(/\/dashboard$/);
