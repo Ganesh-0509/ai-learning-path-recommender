@@ -2,6 +2,7 @@
 
 import {useCallback, useEffect, useState} from 'react';
 import Link from 'next/link';
+import {LEVELS, type Level} from '@/lib/types';
 
 // SRS FR-6: dashboard — progress, skills, milestones, next recommended
 // action. Reads /api/profile + /api/path (which already reflects Progress
@@ -29,17 +30,29 @@ type Profile = {
   interests: string[];
 };
 
+const LEVEL_LABELS: Record<Level, string> = {
+  BEGINNER: 'Beginner',
+  INTERMEDIATE: 'Intermediate',
+  ADVANCED: 'Advanced',
+};
+
 export default function DashboardView() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  // Distinct from `refreshing` on purpose: only the very first load should
+  // blank the whole page. A "Mark complete" refresh previously reused this
+  // flag and unmounted the entire dashboard for a single list-item change.
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [milestones, setMilestones] = useState<Milestone[] | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [explaining, setExplaining] = useState<string | null>(null);
+  const [savingLevel, setSavingLevel] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setRefreshing(true);
     setError(null);
     try {
       const profileResponse = await fetch('/api/profile');
@@ -65,7 +78,8 @@ export default function DashboardView() {
     } catch {
       setError('Something went wrong loading your dashboard.');
     } finally {
-      setLoading(false);
+      setRefreshing(false);
+      setInitialLoading(false);
     }
   }, []);
 
@@ -79,13 +93,22 @@ export default function DashboardView() {
 
   async function markComplete(courseId: string) {
     setUpdatingId(courseId);
+    setActionErrors(prev => ({...prev, [courseId]: ''}));
     try {
-      await fetch('/api/progress', {
+      const response = await fetch('/api/progress', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({courseId, status: 'COMPLETE'}),
       });
+      if (!response.ok) {
+        throw new Error('Request failed');
+      }
       await load();
+    } catch {
+      setActionErrors(prev => ({
+        ...prev,
+        [courseId]: "Couldn't mark this complete — try again.",
+      }));
     } finally {
       setUpdatingId(null);
     }
@@ -93,22 +116,43 @@ export default function DashboardView() {
 
   async function explainCourse(courseId: string) {
     setExplaining(courseId);
+    setActionErrors(prev => ({...prev, [courseId]: ''}));
     try {
       const response = await fetch('/api/explain', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({courseId}),
       });
-      if (response.ok) {
-        const data = await response.json();
-        setExplanations(prev => ({...prev, [courseId]: data.explanation}));
+      if (!response.ok) {
+        throw new Error('Request failed');
       }
+      const data = await response.json();
+      setExplanations(prev => ({...prev, [courseId]: data.explanation}));
+    } catch {
+      setActionErrors(prev => ({
+        ...prev,
+        [courseId]: "Couldn't load an explanation — try again.",
+      }));
     } finally {
       setExplaining(null);
     }
   }
 
-  if (loading) {
+  async function updateLevel(level: Level) {
+    setSavingLevel(true);
+    try {
+      await fetch('/api/profile', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({level}),
+      });
+      await load();
+    } finally {
+      setSavingLevel(false);
+    }
+  }
+
+  if (initialLoading) {
     return <p className="text-sm text-zinc-500">Loading your dashboard…</p>;
   }
 
@@ -137,17 +181,52 @@ export default function DashboardView() {
   const nextAction = allCourses.find(c => !c.completed);
 
   return (
-    <div className="flex w-full max-w-2xl flex-col gap-6">
+    <div className="flex w-full max-w-4xl flex-col gap-6">
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="flex items-center gap-3 text-sm text-red-600 dark:text-red-400">
+          {error}
+          <button
+            type="button"
+            onClick={() => load()}
+            className="font-medium underline underline-offset-4"
+          >
+            Try again
+          </button>
+        </p>
       )}
 
       <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="text-sm font-medium text-zinc-500">Goal</h2>
-        <p className="text-lg text-zinc-900 dark:text-zinc-50">
-          {profile.goal || '—'}
-        </p>
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-medium text-zinc-500">Goal</h2>
+            <p className="text-lg text-zinc-900 dark:text-zinc-50">
+              {profile.goal || '—'}
+            </p>
+          </div>
+          <label className="flex shrink-0 flex-col items-end gap-1 text-right">
+            <span className="text-sm font-medium text-zinc-500">Level</span>
+            <select
+              value={profile.level}
+              disabled={savingLevel}
+              onChange={e => updateLevel(e.target.value as Level)}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              {LEVELS.map(level => (
+                <option key={level} value={level}>
+                  {LEVEL_LABELS[level]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div
+          role="progressbar"
+          aria-valuenow={progressPercent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Learning path progress"
+          className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
+        >
           <div
             className="h-full bg-zinc-900 dark:bg-zinc-100"
             style={{width: `${progressPercent}%`}}
@@ -173,65 +252,90 @@ export default function DashboardView() {
         </section>
       )}
 
+      {milestones !== null && milestones.length === 0 && (
+        <section className="rounded-lg border border-dashed border-zinc-300 p-4 text-center dark:border-zinc-700">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            We couldn&apos;t match courses to this goal yet — try adding more
+            detail (a specific skill or role) in chat.
+          </p>
+          <Link
+            href="/"
+            className="mt-2 inline-block text-sm font-medium underline underline-offset-4"
+          >
+            Back to chat →
+          </Link>
+        </section>
+      )}
+
       <section className="flex flex-col gap-4">
         {(milestones ?? []).map(milestone => (
           <div key={milestone.title}>
             <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
               {milestone.title}
             </h2>
-            <ul className="flex flex-col gap-2">
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {milestone.courses.map(course => (
                 <li
                   key={course.id}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                  className="flex flex-col justify-between gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
                 >
-                  <div>
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                      {course.title}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {course.description}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {course.skillsTaught.map(skill => (
-                        <span
-                          key={skill}
-                          className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                    {explanations[course.id] ? (
-                      <p className="mt-2 text-xs italic text-zinc-600 dark:text-zinc-400">
-                        {explanations[course.id]}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                        {course.title}
                       </p>
+                      <p className="text-xs text-zinc-500">
+                        {course.description}
+                      </p>
+                    </div>
+                    {course.completed ? (
+                      <span className="shrink-0 text-xs font-medium text-green-600 dark:text-green-400">
+                        Complete
+                      </span>
                     ) : (
                       <button
                         type="button"
-                        onClick={() => explainCourse(course.id)}
-                        disabled={explaining === course.id}
-                        className="mt-2 text-xs font-medium text-zinc-500 underline underline-offset-4 disabled:opacity-50"
+                        onClick={() => markComplete(course.id)}
+                        disabled={updatingId === course.id}
+                        className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50 dark:border-zinc-700"
                       >
-                        {explaining === course.id
-                          ? 'Thinking…'
-                          : 'Why this course?'}
+                        Mark complete
                       </button>
                     )}
                   </div>
-                  {course.completed ? (
-                    <span className="shrink-0 text-xs font-medium text-green-600 dark:text-green-400">
-                      Complete
-                    </span>
+
+                  <div className="flex flex-wrap gap-1">
+                    {course.skillsTaught.map(skill => (
+                      <span
+                        key={skill}
+                        className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+
+                  {explanations[course.id] ? (
+                    <p className="text-xs italic text-zinc-600 dark:text-zinc-400">
+                      {explanations[course.id]}
+                    </p>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => markComplete(course.id)}
-                      disabled={updatingId === course.id}
-                      className="shrink-0 rounded-lg border border-zinc-300 px-2 py-1 text-xs font-medium disabled:opacity-50 dark:border-zinc-700"
+                      onClick={() => explainCourse(course.id)}
+                      disabled={explaining === course.id}
+                      className="self-start text-xs font-medium text-zinc-500 underline underline-offset-4 disabled:opacity-50"
                     >
-                      Mark complete
+                      {explaining === course.id
+                        ? 'Thinking…'
+                        : 'Why this course?'}
                     </button>
+                  )}
+
+                  {actionErrors[course.id] && (
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      {actionErrors[course.id]}
+                    </p>
                   )}
                 </li>
               ))}
@@ -239,6 +343,12 @@ export default function DashboardView() {
           </div>
         ))}
       </section>
+
+      {refreshing && (
+        <p aria-live="polite" className="text-center text-xs text-zinc-400">
+          Updating…
+        </p>
+      )}
     </div>
   );
 }

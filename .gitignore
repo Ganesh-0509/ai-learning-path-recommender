@@ -58,3 +58,8 @@ archive_2026-08-25/
 
 # local Claude Code project settings — not part of the deliverable
 .claude/
+
+# Next.js auto-generated agent-rules files (disabled via agentRules: false
+# in next.config.ts, but ignored too as a backstop)
+/AGENTS.md
+/CLAUDE.md

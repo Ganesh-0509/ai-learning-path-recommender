@@ -2,7 +2,7 @@ import ChatWindow from '@/components/Chat/ChatWindow';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center gap-8 bg-zinc-50 px-6 py-16 dark:bg-zinc-950">
+    <main className="flex flex-1 flex-col items-center gap-8 bg-zinc-50 px-6 py-8 sm:py-16 dark:bg-zinc-950">
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           Learning Path Recommender

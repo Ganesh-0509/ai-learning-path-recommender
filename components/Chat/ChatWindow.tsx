@@ -76,7 +76,7 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex w-full max-w-2xl flex-col gap-4">
+    <div className="flex w-full max-w-3xl flex-col gap-4">
       <div
         role="log"
         aria-live="polite"
@@ -91,6 +91,9 @@ export default function ChatWindow() {
                 : 'mr-auto max-w-[80%] rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
             }
           >
+            <span className="sr-only">
+              {message.role === 'user' ? 'You: ' : 'Assistant: '}
+            </span>
             {message.content}
           </div>
         ))}
@@ -116,7 +119,7 @@ export default function ChatWindow() {
           onChange={e => setInput(e.target.value)}
           placeholder="e.g. I want to become a backend developer"
           disabled={loading}
-          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 dark:focus:ring-offset-zinc-950"
         />
         <button
           type="submit"

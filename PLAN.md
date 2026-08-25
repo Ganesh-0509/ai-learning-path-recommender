@@ -158,10 +158,20 @@ spec and its input-validation/authz pass the same day (see §9, §10).
   Prerequisite selection uses embedding similarity, not an arbitrary pick — see §8, this mattered.
   `/api/progress` covers the write side of the feedback loop. Playwright: 5 specs, all passing
   against real seeded data.
-- **Day 4 (Aug 28) — IN PROGRESS.** Chat + dashboard UI built and functional (not yet polished).
-  Still open: the RAG-grounded explainer/Q&A ("why this course") — `/api/chat` currently only
-  does intent extraction, not grounded explanation of recommendations (SRS FR-5). Still open: run
-  the `impeccable` skill against the built UI and fix what it flags.
+- **Day 4 (Aug 28) — DONE, done early.** RAG-grounded explainer (`/api/explain`, "why this
+  course") and path Q&A (`/api/chat`'s question branch) close out SRS FR-5. Ran `impeccable`
+  against the chat + dashboard UI (dual assessment: one subagent design review + this session's
+  own Playwright-screenshot browser evidence). Fixed everything it found: fonts were loaded but
+  never applied (`body` hardcoded `font-family: Arial`, overriding the Geist font vars — real
+  bug, not cosmetic); no persistent nav between chat/dashboard (added a shared header); "Mark
+  complete" blanked the entire dashboard to a loading string on every click (decoupled initial
+  load from refresh); markComplete/explainCourse failed silently with no user feedback (added
+  error states); chat input's focus ring was nearly invisible for keyboard users; empty-path
+  state had no message; dashboard wasted ~45% of desktop width at max-w-2xl (widened + added a
+  2-col course grid); skill-chip text was sub-12px; mobile "Mark complete" tap targets were
+  undersized; the learner's inferred level was silently assumed and never shown or correctable
+  (added a Goal-card level selector); progress bar and chat bubbles lacked ARIA semantics for
+  screen readers. Re-ran the full 27-spec suite after fixes — all green.
 - **Day 5 (Aug 29):** Feedback loop refinement (TOO_EASY/TOO_HARD feedback actually influencing
   future ranking, not just completion tracking). Full OWASP-mapped security pass against
   SECURITY.md checklist. Playwright stress spec: N concurrent simulated learners hitting
