@@ -21,6 +21,11 @@ be kept current as features land.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — threat model and mitigations
 - [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md) — testing and stress-testing strategy
 - [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) — style and review checklist
+- [`docs/SOLUTION_DOCUMENTATION.md`](docs/SOLUTION_DOCUMENTATION.md) — problem understanding,
+  solution approach, architecture, AI/ML techniques, features, challenges faced (submission
+  deliverable #3)
+- [`docs/DEMO_VIDEO_SCRIPT.md`](docs/DEMO_VIDEO_SCRIPT.md) — storyboard for the required demo
+  video (submission deliverable #4)
 
 ## Prerequisites
 
