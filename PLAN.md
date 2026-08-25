@@ -45,7 +45,7 @@ Archived at `C:\hcl\archive_2026-08-25\`.
   least infra work.
 - **Database:** SQLite (via Prisma ORM) for learner profiles, progress, course catalog. Prisma
   makes swapping to Postgres later a config change, not a rewrite, if the chosen host needs it.
-- **Embeddings:** local, via `@xenova/transformers` (all-MiniLM-L6-v2) run in a seed script —
+- **Embeddings:** local, via `@huggingface/transformers` (all-MiniLM-L6-v2) run in a seed script —
   no external API key, no per-request cost, deterministic, works offline for the demo. Computed
   once at seed time and cached in the DB; recommendation matching is cosine similarity at request
   time over cached vectors.
@@ -90,6 +90,13 @@ C:\hcl\
     PRD.md                    Product Requirements Document
     SRS.md                    Software Requirements Specification
     TRD.md                    Technical Requirements Document
+    SECURITY.md                Threat model, OWASP-mapped mitigations, secure-by-default rules
+    TEST_PLAN.md               Test pyramid, Playwright E2E strategy, stress-test approach
+    CODING_STANDARDS.md        Google-style (gts) TypeScript/React conventions, review checklist
+  tests/
+    e2e/                      Playwright functional specs (one per user flow / FR)
+    stress/                   Playwright-driven concurrency/load specs
+  playwright.config.ts
   app/
     page.tsx                 landing + chat entry
     dashboard/page.tsx
@@ -120,20 +127,31 @@ C:\hcl\
 
 ## 5. Day-by-day plan (Aug 25 → Aug 31 IST)
 
-- **Day 1 (Aug 25):** This plan. Create GitHub repo, scaffold Next.js repo, write PRD/SRS/TRD,
-  Prisma schema, mine `train.csv` for the 80 courses, generate course metadata
-  (skills/level/prereqs) via local-LLM batch pass, build `prereq-graph.json`, seed DB + embeddings.
+Security and tests are not a Day-6 add-on — each day's feature work ships with its Playwright
+spec and its input-validation/authz pass the same day (see §9, §10).
+
+- **Day 1 (Aug 25):** This plan + PRD/SRS/TRD/SECURITY/TEST_PLAN/CODING_STANDARDS. Create GitHub
+  repo, scaffold Next.js repo with `gts`-based lint/format config, Playwright installed and
+  configured, Prisma schema, security headers/middleware skeleton. Mine `train.csv` for the 80
+  courses, generate course metadata (skills/level/prereqs) via local-LLM batch pass, build
+  `prereq-graph.json`, seed DB + embeddings.
 - **Day 2 (Aug 26):** Learner profiling engine — onboarding flow + chat-based intent extraction
-  into a structured profile (interests, level, completed courses, goal).
+  into a structured profile (interests, level, completed courses, goal). Zod-validated API
+  input on every route touched. Playwright spec: onboarding → profile persisted.
 - **Day 3 (Aug 27):** Recommendation engine (embedding cosine match, filtered by level) + path
-  generator (topological sort over prereq graph into milestones).
+  generator (topological sort over prereq graph into milestones). Playwright spec: goal →
+  recommendations → ordered path with prerequisites respected.
 - **Day 4 (Aug 28):** RAG-grounded explainer/Q&A chat; dashboard UI (progress %, skills
-  radar/list, milestone timeline, next recommended action).
-- **Day 5 (Aug 29):** Feedback loop (path re-adapts on progress/feedback), UI polish, seed 2-3
-  demo learner personas for the video, error handling pass.
-- **Day 6 (Aug 30):** Deploy to Render, write README with local setup + execution steps, record
-  3-5 min demo video, draft solution documentation (PDF/PPT: problem understanding, architecture,
-  AI/ML techniques, features, challenges).
+  radar/list, milestone timeline, next recommended action). Run the `impeccable` skill against
+  the chat + dashboard UI once built, fix what it flags. Playwright spec: explanation + Q&A +
+  dashboard render correctly.
+- **Day 5 (Aug 29):** Feedback loop (path re-adapts on progress/feedback). Full OWASP-mapped
+  security pass against SECURITY.md checklist. Playwright stress spec: N concurrent simulated
+  learners hitting chat/recommend/progress endpoints, verify no data corruption/crash and record
+  latency under load. Seed 2-3 demo learner personas for the video.
+- **Day 6 (Aug 30):** Deploy to Render, write README with local setup + execution steps, run
+  full Playwright suite (functional + stress) against the deployed URL, record 3-5 min demo
+  video, finalize solution documentation (PDF/PPT).
 - **Aug 31 (buffer):** Final review of all 5 deliverables, submit before 11:59pm IST.
 
 ## 6. Deliverables checklist (all 5 required)
@@ -164,3 +182,46 @@ C:\hcl\
 - Local dev requires Ollama running (`ollama serve`) with `llama3.2:3b` pulled — already true on
   this machine.
 - Team GitHub repo: created at `Ganesh-0509/ai-learning-path-recommender` (public).
+
+## 9. Security (full detail in `docs/SECURITY.md`)
+
+Security is a build goal, not a pre-submission checklist item. Summary of what applies to every
+route/component as it's built:
+
+- All API input validated with `zod` schemas — no route trusts a request body/query as typed.
+- Prisma parameterized queries only — no raw SQL string interpolation, which would reopen SQL
+  injection.
+- React's default output escaping relied on for XSS; no `dangerouslySetInnerHTML` unless a
+  specific case is justified and sanitized.
+- Security headers (CSP, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) set via
+  `next.config.js` / middleware.
+- Rate limiting on chat/recommend/progress API routes (in-memory token bucket is sufficient for a
+  single-instance hackathon deploy; documented as a scaling limitation, not silently ignored).
+- No secrets committed: `.env` gitignored, `.env.example` documents required vars with placeholder
+  values only.
+- LLM prompt-injection awareness: learner free-text is never concatenated into a prompt that also
+  carries system instructions/trusted data without a clear delimiter, since a learner could type
+  text trying to override the assistant's behavior.
+- Dependency hygiene: `npm audit` run before each merge to `main`.
+
+## 10. Testing & verification strategy (full detail in `docs/TEST_PLAN.md`)
+
+- **Verification tool is Playwright, exclusively.** No manual/ad hoc browser-tool clicking to
+  "confirm it works" — every functional claim is backed by a Playwright spec that runs and
+  passes. `tests/e2e/` holds one spec per user flow (mapped to the FRs in `SRS.md`).
+- **Stress testing is also Playwright-driven** — `tests/stress/` scripts spin up many concurrent
+  browser contexts (or use Playwright's `APIRequestContext` for pure API-layer load without
+  browser overhead) against chat/recommend/progress endpoints, asserting the app stays correct
+  and responsive under concurrent load, not just under a single serial user.
+- **UI/UX verification** goes through the `impeccable` skill once the chat and dashboard UI exist
+  (Day 4) — hierarchy, accessibility, responsive behavior, empty/error states — findings get
+  fixed before Day 5, not left as known issues.
+- Unit tests (Node's built-in test runner or Vitest) cover the pure-logic pieces that don't need
+  a browser: recommendation ranking, topological path sort, prerequisite expansion.
+
+## 11. Coding standard (full detail in `docs/CODING_STANDARDS.md`)
+
+"Google-level" is operationalized as: use Google's own published TypeScript tooling (`gts`) for
+lint/format rather than inventing an equivalent, plus a short project-specific review checklist
+(naming, function size, error handling, no silent catches, no `any`). Applied via ESLint +
+Prettier config checked in, and expected to pass before any commit lands on `main`.

@@ -1,0 +1,80 @@
+// Prisma schema — see docs/TRD.md §3 for the data model rationale.
+// Prisma 7: the datasource connection string lives in prisma.config.ts, not here.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// A catalog entry seeded from the Round 1 dataset (see PLAN.md §2), enriched with
+/// level/skills/prerequisites via a one-time local-LLM metadata pass.
+model Course {
+  id            String   @id
+  title         String
+  description   String
+  level         Level
+  /// JSON-encoded string[] of skills this course teaches.
+  skillsTaught  String
+  /// JSON-encoded string[] of prerequisite Course ids.
+  prerequisites String
+  /// JSON-encoded float[] embedding vector from the local embedding model.
+  embedding     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  progress Progress[]
+
+  @@index([level])
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+/// A single-session learner profile — no multi-tenant auth in this submission's scope
+/// (see docs/PRD.md §5, docs/SRS.md FR-2.3).
+model Learner {
+  id        String   @id @default(cuid())
+  /// JSON-encoded string[] of stated interests.
+  interests String   @default("[]")
+  level     Level    @default(BEGINNER)
+  goal      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progress Progress[]
+}
+
+model Progress {
+  id        String         @id @default(cuid())
+  learnerId String
+  courseId  String
+  status    ProgressStatus @default(NOT_STARTED)
+  /// Learner-given signal used to adapt the path (SRS FR-6.5, FR-4.4).
+  feedback  Feedback?
+  updatedAt DateTime       @updatedAt
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, courseId])
+  @@index([learnerId])
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETE
+}
+
+enum Feedback {
+  TOO_EASY
+  TOO_HARD
+  SKIP
+}

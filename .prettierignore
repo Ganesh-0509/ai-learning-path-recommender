@@ -1,0 +1,9 @@
+# gts's Prettier config (single quotes, no bracket spacing, avoid-parens
+# arrows) is a code style — it isn't meant to reformat hand-wrapped prose docs.
+*.md
+
+# Prisma-generated output.
+app/generated/
+
+# Old challenge, not part of this project.
+archive_2026-08-25/
