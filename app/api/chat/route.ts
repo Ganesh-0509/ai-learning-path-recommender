@@ -4,8 +4,12 @@ import {db} from '@/lib/db';
 import {extractIntent} from '@/lib/intent';
 import {answerPathQuestion} from '@/lib/qa';
 import {embed} from '@/lib/embeddings';
-import {rankCourses} from '@/lib/recommend';
-import {loadCourseMap, getCompletedCourseIds} from '@/lib/courses';
+import {rankCourses, computeLevelAdjustment} from '@/lib/recommend';
+import {
+  loadCourseMap,
+  getCompletedCourseIds,
+  getFeedbackCounts,
+} from '@/lib/courses';
 import {getLearnerIdFromRequest, setLearnerIdCookie} from '@/lib/session';
 import type {Level} from '@/lib/types';
 
@@ -55,8 +59,11 @@ export async function POST(request: NextRequest) {
     const goalEmbedding = await embed(goalText);
     const courseById = await loadCourseMap();
     const completed = await getCompletedCourseIds(existing.id);
+    const levelAdjustment = computeLevelAdjustment(
+      await getFeedbackCounts(existing.id),
+    );
     const ranked = rankCourses(
-      {goalEmbedding, level: existing.level as Level},
+      {goalEmbedding, level: existing.level as Level, levelAdjustment},
       [...courseById.values()],
       completed,
     );

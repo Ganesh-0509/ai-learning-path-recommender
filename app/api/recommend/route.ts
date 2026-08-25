@@ -1,8 +1,12 @@
 import {NextResponse, type NextRequest} from 'next/server';
 import {db} from '@/lib/db';
 import {embed} from '@/lib/embeddings';
-import {rankCourses} from '@/lib/recommend';
-import {loadCourseMap, getCompletedCourseIds} from '@/lib/courses';
+import {rankCourses, computeLevelAdjustment} from '@/lib/recommend';
+import {
+  loadCourseMap,
+  getCompletedCourseIds,
+  getFeedbackCounts,
+} from '@/lib/courses';
 import {getLearnerIdFromRequest} from '@/lib/session';
 import type {Level} from '@/lib/types';
 
@@ -43,9 +47,12 @@ export async function GET(request: NextRequest) {
 
   const courseById = await loadCourseMap();
   const completed = await getCompletedCourseIds(learner.id);
+  const levelAdjustment = computeLevelAdjustment(
+    await getFeedbackCounts(learner.id),
+  );
 
   const ranked = rankCourses(
-    {goalEmbedding, level: learner.level as Level},
+    {goalEmbedding, level: learner.level as Level, levelAdjustment},
     [...courseById.values()],
     completed,
   );

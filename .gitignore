@@ -63,3 +63,6 @@ archive_2026-08-25/
 # in next.config.ts, but ignored too as a backstop)
 /AGENTS.md
 /CLAUDE.md
+
+# scratch notes, not project content
+/temp.txt

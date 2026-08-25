@@ -40,3 +40,14 @@ export async function getCompletedCourseIds(
   });
   return new Set(rows.map(r => r.courseId));
 }
+
+/** Feeds lib/recommend.ts's computeLevelAdjustment — SRS FR-4.4/FR-6.5. */
+export async function getFeedbackCounts(
+  learnerId: string,
+): Promise<{tooEasy: number; tooHard: number}> {
+  const [tooEasy, tooHard] = await Promise.all([
+    db.progress.count({where: {learnerId, feedback: 'TOO_EASY'}}),
+    db.progress.count({where: {learnerId, feedback: 'TOO_HARD'}}),
+  ]);
+  return {tooEasy, tooHard};
+}

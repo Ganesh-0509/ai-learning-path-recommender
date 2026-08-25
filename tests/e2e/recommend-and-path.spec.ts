@@ -96,3 +96,50 @@ test.describe('recommend -> path -> progress flow', () => {
     expect(response.status()).toBe(404);
   });
 });
+
+test.describe('feedback adapts future recommendations (FR-4.4/FR-6.5)', () => {
+  test('TOO_HARD feedback shifts the effective ranking level down a tier', async ({
+    request,
+  }) => {
+    await request.post('/api/profile', {
+      data: {goal: 'I want to master Python programming', level: 'ADVANCED'},
+    });
+
+    function findLevelMismatch(
+      body: {recommendations: {id: string; levelMismatch: boolean}[]},
+      id: string,
+    ) {
+      const found = body.recommendations.find(r => r.id === id);
+      expect(found, `expected "${id}" in the response`).toBeTruthy();
+      return found!.levelMismatch;
+    }
+
+    const before = await (await request.get('/api/recommend?limit=30')).json();
+    // At the stated ADVANCED level: the ADVANCED course matches exactly,
+    // the INTERMEDIATE course is a mismatch.
+    expect(findLevelMismatch(before, 'advanced-python-development')).toBe(
+      false,
+    );
+    expect(findLevelMismatch(before, 'python-automation-and-scripting')).toBe(
+      true,
+    );
+
+    // Any TOO_HARD signal nudges the effective level down one tier —
+    // computeLevelAdjustment doesn't care which course it came from.
+    const progressResponse = await request.post('/api/progress', {
+      data: {
+        courseId: 'advanced-python-development',
+        status: 'IN_PROGRESS',
+        feedback: 'TOO_HARD',
+      },
+    });
+    expect(progressResponse.status()).toBe(200);
+
+    const after = await (await request.get('/api/recommend?limit=30')).json();
+    // Effective level is now INTERMEDIATE: the mismatch flips for both courses.
+    expect(findLevelMismatch(after, 'advanced-python-development')).toBe(true);
+    expect(findLevelMismatch(after, 'python-automation-and-scripting')).toBe(
+      false,
+    );
+  });
+});

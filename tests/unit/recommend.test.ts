@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {rankCourses} from '../../lib/recommend';
+import {rankCourses, computeLevelAdjustment} from '../../lib/recommend';
 import type {CourseLike} from '../../lib/types';
 
 function course(
@@ -44,4 +44,46 @@ test('rankCourses penalizes but does not exclude a level mismatch', () => {
   assert.equal(ranked[1].course.id, 'advanced');
   assert.equal(ranked[1].levelMismatch, true);
   assert.ok(ranked[1].score < ranked[0].score);
+});
+
+test('rankCourses applies a levelAdjustment on top of the stated level', () => {
+  const courses = [
+    course('beginner', [1, 0], 'BEGINNER'),
+    course('intermediate', [1, 0], 'INTERMEDIATE'),
+  ];
+  // Stated BEGINNER, but adjusted up one tier by positive feedback signal —
+  // the INTERMEDIATE course should now be the unpenalized match.
+  const adjusted = rankCourses(
+    {goalEmbedding: [1, 0], level: 'BEGINNER', levelAdjustment: 1},
+    courses,
+    new Set(),
+  );
+  assert.equal(adjusted[0].course.id, 'intermediate');
+  assert.equal(adjusted[0].levelMismatch, false);
+});
+
+test('rankCourses clamps levelAdjustment to a valid rank', () => {
+  const courses = [course('beginner', [1, 0], 'BEGINNER')];
+  // ADVANCED (rank 2) + 1 would overflow past the top rank — must clamp, not throw.
+  const ranked = rankCourses(
+    {goalEmbedding: [1, 0], level: 'ADVANCED', levelAdjustment: 1},
+    courses,
+    new Set(),
+  );
+  assert.equal(ranked[0].levelMismatch, true);
+});
+
+test('computeLevelAdjustment: more TOO_HARD than TOO_EASY nudges down a tier', () => {
+  assert.equal(computeLevelAdjustment({tooEasy: 0, tooHard: 1}), -1);
+  assert.equal(computeLevelAdjustment({tooEasy: 1, tooHard: 3}), -1);
+});
+
+test('computeLevelAdjustment: more TOO_EASY than TOO_HARD nudges up a tier', () => {
+  assert.equal(computeLevelAdjustment({tooEasy: 1, tooHard: 0}), 1);
+  assert.equal(computeLevelAdjustment({tooEasy: 3, tooHard: 1}), 1);
+});
+
+test('computeLevelAdjustment: a tie or no feedback makes no adjustment', () => {
+  assert.equal(computeLevelAdjustment({tooEasy: 0, tooHard: 0}), 0);
+  assert.equal(computeLevelAdjustment({tooEasy: 2, tooHard: 2}), 0);
 });
