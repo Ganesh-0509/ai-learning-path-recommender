@@ -26,6 +26,8 @@ be kept current as features land.
   deliverable #3)
 - [`docs/DEMO_VIDEO_SCRIPT.md`](docs/DEMO_VIDEO_SCRIPT.md) — storyboard for the required demo
   video (submission deliverable #4)
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Render deployment steps, cost expectations,
+  fallback options if the LLM service's RAM requirement is a blocker
 
 ## Prerequisites
 
@@ -84,7 +86,8 @@ npm run typecheck     # tsc --noEmit
 
 ## Deployment
 
-Deployed to Render — see [`docs/TRD.md`](docs/TRD.md) §7 for the two-service setup (Next.js web
+Render Blueprint (`render.yaml`) is ready — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for
+the steps and [`docs/TRD.md`](docs/TRD.md) §7 for the two-service architecture (Next.js web
 service + a private Ollama service). Deployed URL will be added here once live.
 
 ## Project structure

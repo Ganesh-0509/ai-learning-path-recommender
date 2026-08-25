@@ -1,0 +1,55 @@
+# Render Blueprint — see docs/TRD.md §7 for the architecture this encodes.
+#
+# Two services because Ollama needs a persistent process serving a loaded
+# model over HTTP, which is not something a serverless/edge platform (e.g.
+# Vercel) can host — this is *why* the project targets Render specifically.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> connect this repo. Render
+# reads this file and provisions both services + the persistent disks below.
+
+services:
+  # --- Next.js app -----------------------------------------------------
+  - type: web
+    name: learning-path-web
+    runtime: node
+    plan: starter # persistent disk requires a paid plan; free tier has none
+    region: oregon
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm run seed && npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/var/data/prod.db
+      - key: LLM_HOST
+        fromService:
+          type: pserv
+          name: learning-path-llm
+          property: hostport
+          # Render exposes an internal service as http://<name>:<port> on the
+          # private network — this resolves to that automatically.
+      - key: LLM_MODEL
+        value: llama3.2:3b
+      - key: EMBEDDING_MODEL
+        value: Xenova/all-MiniLM-L6-v2
+    disk:
+      name: learning-path-db
+      mountPath: /var/data
+      sizeGB: 1
+
+  # --- Ollama, private (not internet-facing) ---------------------------
+  - type: pserv
+    name: learning-path-llm
+    runtime: image
+    plan: standard # llama3.2:3b needs ~4-6GB RAM comfortably — see PLAN.md §8
+    region: oregon
+    image:
+      url: docker.io/ollama/ollama:latest
+    # Pulls the model on first boot, then serves it. The persistent disk
+    # below means later deploys/restarts don't re-download ~2GB every time.
+    dockerCommand: >-
+      sh -c "ollama serve & sleep 5 && ollama pull llama3.2:3b && wait"
+    disk:
+      name: learning-path-llm-data
+      mountPath: /root/.ollama
+      sizeGB: 10
