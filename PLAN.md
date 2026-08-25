@@ -143,25 +143,30 @@ duplicate.
 Security and tests are not a Day-6 add-on — each day's feature work ships with its Playwright
 spec and its input-validation/authz pass the same day (see §9, §10).
 
-- **Day 1 (Aug 25):** This plan + PRD/SRS/TRD/SECURITY/TEST_PLAN/CODING_STANDARDS. Create GitHub
-  repo, scaffold Next.js repo with `gts`-based lint/format config, Playwright installed and
-  configured, Prisma schema, security headers/middleware skeleton. Mine `train.csv` for the 80
-  courses, generate course metadata (skills/level/prereqs) via local-LLM batch pass, build
-  `prereq-graph.json`, seed DB + embeddings.
-- **Day 2 (Aug 26):** Learner profiling engine — onboarding flow + chat-based intent extraction
-  into a structured profile (interests, level, completed courses, goal). Zod-validated API
-  input on every route touched. Playwright spec: onboarding → profile persisted.
-- **Day 3 (Aug 27):** Recommendation engine (embedding cosine match, filtered by level) + path
-  generator (topological sort over prereq graph into milestones). Playwright spec: goal →
-  recommendations → ordered path with prerequisites respected.
-- **Day 4 (Aug 28):** RAG-grounded explainer/Q&A chat; dashboard UI (progress %, skills
-  radar/list, milestone timeline, next recommended action). Run the `impeccable` skill against
-  the chat + dashboard UI once built, fix what it flags. Playwright spec: explanation + Q&A +
-  dashboard render correctly.
-- **Day 5 (Aug 29):** Feedback loop (path re-adapts on progress/feedback). Full OWASP-mapped
-  security pass against SECURITY.md checklist. Playwright stress spec: N concurrent simulated
-  learners hitting chat/recommend/progress endpoints, verify no data corruption/crash and record
-  latency under load. Seed 2-3 demo learner personas for the video.
+- **Day 1 (Aug 25) — DONE.** Plan + PRD/SRS/TRD/SECURITY/TEST_PLAN/CODING_STANDARDS. GitHub repo,
+  Next.js scaffold with `gts`-based lint/format, Playwright configured, Prisma schema. Mined
+  `train.csv` for 80 courses, generated metadata (level/description/skills) via local-LLM
+  category batches, computed embeddings, seeded DB. Hit and fixed an Ollama hang along the way
+  (§8).
+- **Day 2 (Aug 26) — DONE, done early (rolled into Day 1's session).** Learner profiling engine:
+  `/api/profile` (structured) + `/api/chat` (chat-based intent extraction, `lib/intent.ts`) both
+  create/update the same `Learner` row. Zod-validated input on every route. Playwright: 4 profile
+  specs + a real-browser onboarding flow through the actual chat UI.
+- **Day 3 (Aug 27) — DONE, done early.** Recommendation engine (`lib/recommend.ts`, embedding
+  cosine match + level-mismatch re-weight) + path generator (`lib/prereq-graph.ts`, expand →
+  topological sort → milestone grouping) wired to real data via `/api/recommend` + `/api/path`.
+  Prerequisite selection uses embedding similarity, not an arbitrary pick — see §8, this mattered.
+  `/api/progress` covers the write side of the feedback loop. Playwright: 5 specs, all passing
+  against real seeded data.
+- **Day 4 (Aug 28) — IN PROGRESS.** Chat + dashboard UI built and functional (not yet polished).
+  Still open: the RAG-grounded explainer/Q&A ("why this course") — `/api/chat` currently only
+  does intent extraction, not grounded explanation of recommendations (SRS FR-5). Still open: run
+  the `impeccable` skill against the built UI and fix what it flags.
+- **Day 5 (Aug 29):** Feedback loop refinement (TOO_EASY/TOO_HARD feedback actually influencing
+  future ranking, not just completion tracking). Full OWASP-mapped security pass against
+  SECURITY.md checklist. Playwright stress spec: N concurrent simulated learners hitting
+  chat/recommend/progress endpoints, verify no data corruption/crash and record latency under
+  load. Seed 2-3 demo learner personas for the video.
 - **Day 6 (Aug 30):** Deploy to Render, write README with local setup + execution steps, run
   full Playwright suite (functional + stress) against the deployed URL, record 3-5 min demo
   video, finalize solution documentation (PDF/PPT).

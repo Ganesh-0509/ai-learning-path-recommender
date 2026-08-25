@@ -35,6 +35,8 @@ export default function DashboardView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [explaining, setExplaining] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +88,23 @@ export default function DashboardView() {
       await load();
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function explainCourse(courseId: string) {
+    setExplaining(courseId);
+    try {
+      const response = await fetch('/api/explain', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({courseId}),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setExplanations(prev => ({...prev, [courseId]: data.explanation}));
+      }
+    } finally {
+      setExplaining(null);
     }
   }
 
@@ -183,6 +202,22 @@ export default function DashboardView() {
                         </span>
                       ))}
                     </div>
+                    {explanations[course.id] ? (
+                      <p className="mt-2 text-xs italic text-zinc-600 dark:text-zinc-400">
+                        {explanations[course.id]}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => explainCourse(course.id)}
+                        disabled={explaining === course.id}
+                        className="mt-2 text-xs font-medium text-zinc-500 underline underline-offset-4 disabled:opacity-50"
+                      >
+                        {explaining === course.id
+                          ? 'Thinking…'
+                          : 'Why this course?'}
+                      </button>
+                    )}
                   </div>
                   {course.completed ? (
                     <span className="shrink-0 text-xs font-medium text-green-600 dark:text-green-400">

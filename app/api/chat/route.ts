@@ -2,12 +2,21 @@ import {NextResponse, type NextRequest} from 'next/server';
 import {z} from 'zod';
 import {db} from '@/lib/db';
 import {extractIntent} from '@/lib/intent';
+import {answerPathQuestion} from '@/lib/qa';
+import {embed} from '@/lib/embeddings';
+import {rankCourses} from '@/lib/recommend';
+import {loadCourseMap, getCompletedCourseIds} from '@/lib/courses';
 import {getLearnerIdFromRequest, setLearnerIdCookie} from '@/lib/session';
+import type {Level} from '@/lib/types';
 
 // SRS FR-1: conversational intake. Extracts structured intent from the
 // message via lib/intent.ts, then updates (or creates) the learner profile
 // with whatever the model actually extracted — FR-2.2's "profile updates via
-// chat" path.
+// chat" path. Also covers FR-5.2: once a goal exists, a question ("why not
+// X", "how long will this take") is answered grounded in the learner's
+// current recommendations instead of running intent extraction on it.
+
+const QUESTION_PATTERN = /\?\s*$/;
 
 const chatInputSchema = z.object({
   message: z.string().min(1).max(2000),
@@ -33,12 +42,49 @@ export async function POST(request: NextRequest) {
   }
 
   const {message, history} = parsed.data;
-  const intent = await extractIntent(message, history);
 
   const learnerId = getLearnerIdFromRequest(request);
   const existing = learnerId
     ? await db.learner.findUnique({where: {id: learnerId}})
     : null;
+
+  if (existing?.goal && QUESTION_PATTERN.test(message.trim())) {
+    const interests = JSON.parse(existing.interests) as string[];
+    const goalText =
+      `${existing.goal} Interests: ${interests.join(', ')}.`.trim();
+    const goalEmbedding = await embed(goalText);
+    const courseById = await loadCourseMap();
+    const completed = await getCompletedCourseIds(existing.id);
+    const ranked = rankCourses(
+      {goalEmbedding, level: existing.level as Level},
+      [...courseById.values()],
+      completed,
+    );
+
+    const answer = await answerPathQuestion(message, {
+      goal: existing.goal,
+      recommendations: ranked.slice(0, 5).map(r => ({
+        title: r.course.title,
+        level: r.course.level,
+        description: r.course.description,
+      })),
+    });
+
+    const response = NextResponse.json({
+      reply: answer,
+      needsClarification: false,
+      profile: {
+        id: existing.id,
+        goal: existing.goal,
+        level: existing.level,
+        interests,
+      },
+    });
+    setLearnerIdCookie(response, existing.id);
+    return response;
+  }
+
+  const intent = await extractIntent(message, history);
 
   const mergedInterests =
     intent.interests && intent.interests.length > 0
