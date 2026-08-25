@@ -55,25 +55,31 @@ type SeededCourse = CourseMetadata & {
   embedding: number[];
 };
 
-function buildJsonSchema(courseIds: string[]) {
+// Deliberately NOT enum-constraining `id` against the batch's course ids: an
+// enum repeated inside a fixed-length array item schema turned out to make
+// Ollama's CPU-side constrained decoding pathologically slow — it hung the
+// server outright on a 13-course batch (see PLAN.md §8). We validate the
+// returned ids against the expected set in code instead (classifyCategory
+// below), which is just as strict without the grammar blowup.
+function buildJsonSchema(itemCount: number) {
   return {
     type: 'object',
     properties: {
       courses: {
         type: 'array',
-        minItems: courseIds.length,
-        maxItems: courseIds.length,
+        minItems: itemCount,
+        maxItems: itemCount,
         items: {
           type: 'object',
           properties: {
-            id: {type: 'string', enum: courseIds},
+            id: {type: 'string'},
             level: {type: 'string', enum: LEVELS},
             description: {type: 'string'},
             skillsTaught: {
               type: 'array',
               items: {type: 'string'},
               minItems: 3,
-              maxItems: 6,
+              maxItems: 5,
             },
           },
           required: ['id', 'level', 'description', 'skillsTaught'],
@@ -82,6 +88,18 @@ function buildJsonSchema(courseIds: string[]) {
     },
     required: ['courses'],
   };
+}
+
+/** Small batches keep each LLM call's prompt/response — and its JSON Schema
+ * grammar — cheap, which is what actually keeps CPU-bound Ollama responsive. */
+const BATCH_SIZE = 4;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
 }
 
 async function classifyCategory(
@@ -118,9 +136,9 @@ async function classifyCategory(
           `they're genuinely at the same depth). Courses:\n\n${coursesBlock}`,
       },
     ],
-    buildJsonSchema(courseIds),
+    buildJsonSchema(courseIds.length),
     categoryResponseSchema,
-    {temperature: 0.2},
+    {temperature: 0.2, timeoutMs: 90_000},
   );
 
   const returnedIds = new Set(result.courses.map(c => c.id));
@@ -180,12 +198,17 @@ async function main() {
 
   const metadataById = new Map<string, CourseMetadata>();
   for (const [category, courses] of byCategory) {
+    const batches = chunk(courses, BATCH_SIZE);
     console.log(
-      `Classifying category "${category}" (${courses.length} courses) ...`,
+      `Classifying category "${category}" (${courses.length} courses, ` +
+        `${batches.length} batch(es) of up to ${BATCH_SIZE}) ...`,
     );
-    const results = await classifyCategory(category, courses);
-    for (const result of results) {
-      metadataById.set(result.id, result);
+    for (const [i, batch] of batches.entries()) {
+      console.log(`  batch ${i + 1}/${batches.length} ...`);
+      const results = await classifyCategory(category, batch);
+      for (const result of results) {
+        metadataById.set(result.id, result);
+      }
     }
   }
 

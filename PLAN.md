@@ -196,6 +196,24 @@ spec and its input-validation/authz pass the same day (see §9, §10).
   this machine.
 - Team GitHub repo: created at `Ganesh-0509/ai-learning-path-recommender` (public).
 
+**Incident (2026-08-25), resolved:** the first catalog-generation run hung Ollama entirely — not
+slow, actually wedged (0% CPU for 5+ seconds, unresponsive even to a trivial "say OK" request,
+even after `ollama stop`). Root cause: a JSON Schema that `enum`-constrained the `id` field
+against up to 13-15 course ids, repeated inside a fixed-length (`minItems == maxItems`) array
+item schema — that grammar was too complex for llama.cpp's CPU-side constrained decoding on a 3B
+model and it deadlocked rather than just running slow. Fix: (1) dropped the `id` enum constraint
+entirely — the expected-id check now happens in code after the response comes back, just as
+strict without the grammar blowup; (2) batch size capped at 4 courses per LLM call regardless of
+category size (`scripts/generate-course-catalog.ts` `BATCH_SIZE`); (3) `lib/llm.ts` now enforces
+a request timeout (`AbortSignal.timeout`, default 120s) on every call, so a future hang fails
+loud and fast instead of blocking indefinitely — this also matters for the runtime chat feature,
+not just seeding. Verified: a 4-course batch that previously never returned now completes in
+~50s. The server recovered on its own once the request that caused the initial hang was
+abandoned (`ollama stop <model>` plus waiting) — no process kill was needed. A separate, unrelated
+suggestion mid-incident to switch catalog generation to a hosted third-party model was declined
+after clarifying scope, since it would have meant the committed course-metadata data was
+generated via a vendor API — conflicting with §3a even for a one-time dev-time step.
+
 ## 9. Security (full detail in `docs/SECURITY.md`)
 
 Security is a build goal, not a pre-submission checklist item. Summary of what applies to every

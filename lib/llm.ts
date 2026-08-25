@@ -32,7 +32,13 @@ export type ChatOptions = {
   format?: Record<string, unknown>;
   /** Lower = more deterministic. Metadata/extraction tasks want this low. */
   temperature?: number;
+  /** Defaults to 120s. A complex JSON Schema can make CPU-bound constrained
+   * decoding pathologically slow (observed hanging Ollama entirely during
+   * catalog generation) — always bound the wait rather than hanging forever. */
+  timeoutMs?: number;
 };
+
+const DEFAULT_TIMEOUT_MS = 120_000;
 
 const ollamaChatResponseSchema = z.object({
   message: z.object({content: z.string()}),
@@ -46,20 +52,33 @@ export async function chat(
   messages: ChatMessage[],
   options: ChatOptions = {},
 ): Promise<string> {
-  const response = await fetch(`${getHost()}/api/chat`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      model: getModel(),
-      messages,
-      stream: false,
-      format: options.format,
-      options:
-        options.temperature === undefined
-          ? undefined
-          : {temperature: options.temperature},
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: getModel(),
+        messages,
+        stream: false,
+        format: options.format,
+        options:
+          options.temperature === undefined
+            ? undefined
+            : {temperature: options.temperature},
+      }),
+      signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      throw new Error(
+        `Local LLM request timed out after ${options.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms. ` +
+          'A complex JSON Schema can make constrained decoding very slow on CPU — ' +
+          'try a smaller batch or a simpler schema.',
+      );
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     throw new Error(
@@ -82,7 +101,11 @@ export async function chatStructured<T>(
   messages: ChatMessage[],
   jsonSchema: Record<string, unknown>,
   zodSchema: z.ZodType<T>,
-  options: {temperature?: number; maxAttempts?: number} = {},
+  options: {
+    temperature?: number;
+    maxAttempts?: number;
+    timeoutMs?: number;
+  } = {},
 ): Promise<T> {
   const maxAttempts = options.maxAttempts ?? 3;
   const conversation = [...messages];
@@ -92,6 +115,7 @@ export async function chatStructured<T>(
     const raw = await chat(conversation, {
       format: jsonSchema,
       temperature: options.temperature,
+      timeoutMs: options.timeoutMs,
     });
     try {
       return zodSchema.parse(JSON.parse(raw));
