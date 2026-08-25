@@ -40,7 +40,9 @@ const eslintConfig = defineConfig([
   },
   {
     // scripts/ are dev-time CLI tools — console output IS their interface.
-    files: ['scripts/**/*.ts'],
+    // tests/stress/ logs latency percentiles as evidence, per
+    // docs/TEST_PLAN.md §4 ("not just run-and-discard").
+    files: ['scripts/**/*.ts', 'tests/stress/**/*.ts'],
     rules: {
       'no-console': 'off',
     },

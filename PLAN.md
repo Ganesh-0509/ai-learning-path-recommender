@@ -172,14 +172,18 @@ spec and its input-validation/authz pass the same day (see §9, §10).
   undersized; the learner's inferred level was silently assumed and never shown or correctable
   (added a Goal-card level selector); progress bar and chat bubbles lacked ARIA semantics for
   screen readers. Re-ran the full 27-spec suite after fixes — all green.
-- **Day 5 (Aug 29) — feedback loop + security DONE, stress test + demo personas remaining.**
+- **Day 5 (Aug 29) — DONE except demo personas (rolled into Day 6).**
   `computeLevelAdjustment` wires TOO_EASY/TOO_HARD into future ranking (not just completion
   tracking) — verified end-to-end, not just at the pure-function level. Security pass against
   SECURITY.md: response headers (nonce-based CSP via `proxy.ts` — a static CSP breaks Next.js
   hydration entirely, see §8), rate limiting (`lib/rate-limit.ts`, token bucket keyed by learner
   id), and the three promised adversarial specs (input-validation, xss, prompt-injection) — the
   last of which caught and fixed a real vulnerability, not just confirmed an assumption (§8).
-  Still open: Playwright stress spec (N concurrent simulated learners), demo learner personas.
+  Stress specs (`tests/stress/`): 20 concurrent learners on recommend/progress (p50=1.4s,
+  p95=2.2s, no cross-learner state bleed) and 5 concurrent real-LLM chat calls (p50=19s,
+  p95=32s — Ollama serializes one model, so this measures "does concurrent load corrupt state,"
+  not LLM-level parallelism; the latency itself is documented evidence for the solution doc, not
+  a hidden number).
 - **Day 6 (Aug 30):** Deploy to Render, write README with local setup + execution steps, run
   full Playwright suite (functional + stress) against the deployed URL, record 3-5 min demo
   video, finalize solution documentation (PDF/PPT).
