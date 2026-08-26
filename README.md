@@ -16,6 +16,9 @@ checklist and [`PLAN.md`](PLAN.md) for the day-by-day build history.
 
 - [`PLAN.md`](PLAN.md) — day-by-day build log: architecture decisions, tech stack, what broke and
   why, in the order it actually happened
+- [`docs/PROJECT_EXPLAINED_SIMPLY.md`](docs/PROJECT_EXPLAINED_SIMPLY.md) — what this project does
+  and how it works, in plain language with no assumed technical background — start here if the
+  other docs feel too dense, or if you need to explain the project to someone else
 - [`docs/PRD.md`](docs/PRD.md) — product requirements
 - [`docs/SRS.md`](docs/SRS.md) — functional/non-functional requirements
 - [`docs/TRD.md`](docs/TRD.md) — technical architecture, data model, API surface
