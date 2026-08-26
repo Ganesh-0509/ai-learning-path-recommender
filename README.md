@@ -8,10 +8,14 @@ All AI/ML inference (intent parsing, explanations, embeddings) runs on a **local
 open-source model** — no third-party AI API is called anywhere in this product. See
 [`docs/SECURITY.md`](docs/SECURITY.md) for why.
 
-**Project status:** feature-complete for submission.
+**Project status:** feature-complete for submission — see
+[`docs/SUBMISSION_READINESS.md`](docs/SUBMISSION_READINESS.md) for the full requirements
+checklist and [`PLAN.md`](PLAN.md) for the day-by-day build history.
 
 ## Documentation
 
+- [`PLAN.md`](PLAN.md) — day-by-day build log: architecture decisions, tech stack, what broke and
+  why, in the order it actually happened
 - [`docs/PRD.md`](docs/PRD.md) — product requirements
 - [`docs/SRS.md`](docs/SRS.md) — functional/non-functional requirements
 - [`docs/TRD.md`](docs/TRD.md) — technical architecture, data model, API surface
@@ -21,6 +25,11 @@ open-source model** — no third-party AI API is called anywhere in this product
 - [`docs/SOLUTION_DOCUMENTATION.md`](docs/SOLUTION_DOCUMENTATION.md) — problem understanding,
   solution approach, architecture, AI/ML techniques, features, challenges faced (submission
   deliverable #3)
+- [`docs/SUBMISSION_READINESS.md`](docs/SUBMISSION_READINESS.md) — requirements gap-check against
+  the brief and a self-assessed score estimate per judging criterion
+- [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md) — full engineering deep-dive: system
+  architecture, every algorithm and formula actually used, AI/ML component analysis, measured
+  performance data, and the full security threat model
 - [`docs/DEMO_VIDEO_SCRIPT.md`](docs/DEMO_VIDEO_SCRIPT.md) — storyboard for the required demo
   video (submission deliverable #4)
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Render deployment steps, cost expectations,
