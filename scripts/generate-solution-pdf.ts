@@ -1,4 +1,4 @@
-import {readFile, writeFile} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {marked} from 'marked';
 import {chromium} from '@playwright/test';
@@ -12,8 +12,14 @@ import {chromium} from '@playwright/test';
  * it rather than hand-editing the PDF.
  */
 
-const SOURCE = path.resolve(import.meta.dirname, '../docs/SOLUTION_DOCUMENTATION.md');
-const OUTPUT = path.resolve(import.meta.dirname, '../docs/SOLUTION_DOCUMENTATION.pdf');
+const SOURCE = path.resolve(
+  import.meta.dirname,
+  '../docs/SOLUTION_DOCUMENTATION.md',
+);
+const OUTPUT = path.resolve(
+  import.meta.dirname,
+  '../docs/SOLUTION_DOCUMENTATION.pdf',
+);
 
 function wrapHtml(bodyHtml: string): string {
   return `<!doctype html>

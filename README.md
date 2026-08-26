@@ -8,9 +8,8 @@ All AI/ML inference (intent parsing, explanations, embeddings) runs on a **local
 open-source model** — no third-party AI API is called anywhere in this product. See
 [`docs/SECURITY.md`](docs/SECURITY.md) for why.
 
-**Project status:** in active development — see [`PLAN.md`](PLAN.md) for the day-by-day build
-plan and current progress. This README's setup steps reflect what's implemented so far and will
-be kept current as features land.
+**Project status:** feature-complete for submission — see [`docs/SUBMISSION_READINESS.md`](docs/SUBMISSION_READINESS.md)
+for the full requirements checklist and [`PLAN.md`](PLAN.md) for the day-by-day build history.
 
 ## Documentation
 
@@ -24,6 +23,8 @@ be kept current as features land.
 - [`docs/SOLUTION_DOCUMENTATION.md`](docs/SOLUTION_DOCUMENTATION.md) — problem understanding,
   solution approach, architecture, AI/ML techniques, features, challenges faced (submission
   deliverable #3)
+- [`docs/SUBMISSION_READINESS.md`](docs/SUBMISSION_READINESS.md) — requirements gap-check against
+  the brief and a self-assessed score estimate per judging criterion
 - [`docs/DEMO_VIDEO_SCRIPT.md`](docs/DEMO_VIDEO_SCRIPT.md) — storyboard for the required demo
   video (submission deliverable #4)
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Render deployment steps, cost expectations,
@@ -52,7 +53,11 @@ cp .env.example .env
 npx prisma generate
 npx prisma migrate dev
 
-# 4. Run the dev server
+# 4. Seed the course/project/assessment catalog (from the committed
+#    data/courses.seed.json — no LLM call needed for this step)
+npm run seed
+
+# 5. Run the dev server
 npm run dev
 ```
 

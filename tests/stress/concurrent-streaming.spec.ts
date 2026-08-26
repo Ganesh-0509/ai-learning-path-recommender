@@ -103,8 +103,13 @@ test('N concurrent learners streaming explanations and Q&A stay isolated, no cra
       }),
     );
 
-    for (const {learner, status, contentType, text, profileHeader} of
-      qaResults) {
+    for (const {
+      learner,
+      status,
+      contentType,
+      text,
+      profileHeader,
+    } of qaResults) {
       expect(status, `qa learner ${learner.id}`).toBe(200);
       expect(contentType, `qa learner ${learner.id}`).toContain('text/plain');
       expect(text.length, `qa learner ${learner.id}`).toBeGreaterThan(0);
@@ -117,8 +122,8 @@ test('N concurrent learners streaming explanations and Q&A stay isolated, no cra
 
     // No cross-learner bleed: each learner's streamed Q&A reflects only their
     // own goal, not another concurrently-streaming learner's.
-    const goalsSeen = qaResults.map(r =>
-      JSON.parse(decodeURIComponent(r.profileHeader)).goal,
+    const goalsSeen = qaResults.map(
+      r => JSON.parse(decodeURIComponent(r.profileHeader)).goal,
     );
     expect(
       new Set(goalsSeen).size,
