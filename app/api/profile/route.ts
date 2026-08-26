@@ -54,7 +54,11 @@ export async function POST(request: NextRequest) {
   const parsed = profileInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      {error: 'Invalid profile data.', details: parsed.error.flatten()},
+      {
+        error:
+          "That profile information couldn't be saved — please check it and try again.",
+        details: parsed.error.flatten(),
+      },
       {status: 400},
     );
   }

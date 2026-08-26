@@ -42,7 +42,10 @@ export async function POST(request: NextRequest) {
   const parsed = chatInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      {error: 'Invalid chat request.', details: parsed.error.flatten()},
+      {
+        error: "That message couldn't be sent — please try again.",
+        details: parsed.error.flatten(),
+      },
       {status: 400},
     );
   }

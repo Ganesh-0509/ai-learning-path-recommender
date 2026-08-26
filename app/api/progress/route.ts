@@ -39,7 +39,10 @@ export async function POST(request: NextRequest) {
   const parsed = progressInputSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      {error: 'Invalid progress update.', details: parsed.error.flatten()},
+      {
+        error: "That update couldn't be saved — please try again.",
+        details: parsed.error.flatten(),
+      },
       {status: 400},
     );
   }
@@ -47,7 +50,10 @@ export async function POST(request: NextRequest) {
 
   const course = await db.course.findUnique({where: {id: courseId}});
   if (!course) {
-    return NextResponse.json({error: 'Unknown course id.'}, {status: 404});
+    return NextResponse.json(
+      {error: "That item couldn't be found — try refreshing the page."},
+      {status: 404},
+    );
   }
 
   const progress = await db.progress.upsert({

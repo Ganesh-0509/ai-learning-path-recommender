@@ -37,7 +37,10 @@ export async function POST(request: NextRequest) {
   const body: unknown = await request.json().catch(() => null);
   const parsed = explainInputSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({error: 'Invalid request.'}, {status: 400});
+    return NextResponse.json(
+      {error: "Couldn't tell which item to explain — please try again."},
+      {status: 400},
+    );
   }
 
   const learner = await db.learner.findUnique({where: {id: learnerId}});
@@ -48,7 +51,10 @@ export async function POST(request: NextRequest) {
   const courseById = await loadCourseMap();
   const course = courseById.get(parsed.data.courseId);
   if (!course) {
-    return NextResponse.json({error: 'Unknown course id.'}, {status: 404});
+    return NextResponse.json(
+      {error: "That item couldn't be found — try refreshing the page."},
+      {status: 404},
+    );
   }
 
   const interests = JSON.parse(learner.interests) as string[];

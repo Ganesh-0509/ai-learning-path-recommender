@@ -3,6 +3,7 @@
 import {useState, type FormEvent} from 'react';
 import Link from 'next/link';
 import MarkdownText from '@/components/MarkdownText';
+import {extractErrorMessage} from '@/lib/client-errors';
 
 // SRS FR-1: conversational interface. Talks to /api/chat, which extracts
 // structured intent (lib/intent.ts) and updates the learner profile as a
@@ -89,7 +90,13 @@ export default function ChatWindow() {
       });
 
       if (!response.ok) {
-        throw new Error(`Chat request failed (${response.status})`);
+        setError(
+          await extractErrorMessage(
+            response,
+            'Something went wrong reaching the assistant. Please try again.',
+          ),
+        );
+        return;
       }
 
       if (response.headers.get('content-type')?.includes('text/plain')) {

@@ -4,6 +4,7 @@ import {useCallback, useEffect, useState} from 'react';
 import Link from 'next/link';
 import MarkdownText from '@/components/MarkdownText';
 import {LEVELS, nounForItemType, type ItemType, type Level} from '@/lib/types';
+import {extractErrorMessage} from '@/lib/client-errors';
 
 // SRS FR-6: dashboard — progress, skills, milestones, next recommended
 // action. Reads /api/profile + /api/path (which already reflects Progress
@@ -78,7 +79,13 @@ export default function DashboardView() {
         return;
       }
       if (!profileResponse.ok) {
-        throw new Error('Failed to load profile.');
+        setError(
+          await extractErrorMessage(
+            profileResponse,
+            "Couldn't load your profile. Please try again.",
+          ),
+        );
+        return;
       }
       setProfile(await profileResponse.json());
 
@@ -87,12 +94,20 @@ export default function DashboardView() {
         const pathData = await pathResponse.json();
         setMilestones(pathData.milestones);
       } else if (pathResponse.status !== 400) {
-        throw new Error('Failed to load learning path.');
+        setError(
+          await extractErrorMessage(
+            pathResponse,
+            "Couldn't load your learning path. Please try again.",
+          ),
+        );
+        return;
       } else {
         setMilestones([]);
       }
     } catch {
-      setError('Something went wrong loading your dashboard.');
+      setError(
+        "Couldn't reach the server. Check your connection and try again.",
+      );
     } finally {
       setRefreshing(false);
       setInitialLoading(false);
@@ -117,13 +132,19 @@ export default function DashboardView() {
         body: JSON.stringify({courseId, status: 'COMPLETE'}),
       });
       if (!response.ok) {
-        throw new Error('Request failed');
+        const message = await extractErrorMessage(
+          response,
+          "Couldn't mark this complete — try again.",
+        );
+        setActionErrors(prev => ({...prev, [courseId]: message}));
+        return;
       }
       await load();
     } catch {
       setActionErrors(prev => ({
         ...prev,
-        [courseId]: "Couldn't mark this complete — try again.",
+        [courseId]:
+          "Couldn't reach the server. Check your connection and try again.",
       }));
     } finally {
       setUpdatingId(null);
@@ -140,7 +161,12 @@ export default function DashboardView() {
         body: JSON.stringify({courseId}),
       });
       if (!response.ok) {
-        throw new Error('Request failed');
+        const message = await extractErrorMessage(
+          response,
+          "Couldn't load an explanation — try again.",
+        );
+        setActionErrors(prev => ({...prev, [courseId]: message}));
+        return;
       }
       // Streamed — appears progressively rather than after a multi-second
       // silent wait (docs/TRD.md §4.3 grounding still applies server-side;
@@ -162,7 +188,8 @@ export default function DashboardView() {
     } catch {
       setActionErrors(prev => ({
         ...prev,
-        [courseId]: "Couldn't load an explanation — try again.",
+        [courseId]:
+          "Couldn't reach the server. Check your connection and try again.",
       }));
     } finally {
       setExplaining(null);
@@ -171,13 +198,27 @@ export default function DashboardView() {
 
   async function updateLevel(level: Level) {
     setSavingLevel(true);
+    setError(null);
     try {
-      await fetch('/api/profile', {
+      const response = await fetch('/api/profile', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({level}),
       });
+      if (!response.ok) {
+        setError(
+          await extractErrorMessage(
+            response,
+            "Couldn't save your level. Please try again.",
+          ),
+        );
+        return;
+      }
       await load();
+    } catch {
+      setError(
+        "Couldn't reach the server. Check your connection and try again.",
+      );
     } finally {
       setSavingLevel(false);
     }
