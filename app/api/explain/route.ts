@@ -59,7 +59,15 @@ export async function POST(request: NextRequest) {
 
   const interests = JSON.parse(learner.interests) as string[];
   const goalText = `${learner.goal} Interests: ${interests.join(', ')}.`.trim();
-  const goalEmbedding = await embed(goalText);
+  let goalEmbedding: number[];
+  try {
+    goalEmbedding = await embed(goalText);
+  } catch {
+    return NextResponse.json(
+      {error: "Couldn't process your goal right now. Please try again."},
+      {status: 503},
+    );
+  }
   const similarity = cosineSimilarity(goalEmbedding, course.embedding);
   const levelMismatch =
     LEVEL_RANK[course.level as Level] !== LEVEL_RANK[learner.level as Level];

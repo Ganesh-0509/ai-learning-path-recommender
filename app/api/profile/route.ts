@@ -50,6 +50,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Deliberately not rate-limited, unlike every other mutating route: this
+  // is the one endpoint routinely called before a learner-id cookie exists
+  // (first-time profile creation), so it falls back to an IP-derived key —
+  // and multiple genuinely distinct first-time visitors sharing one network
+  // (no x-forwarded-for, or a shared NAT/office IP) would collide on that
+  // same fallback bucket. A burst of legitimate concurrent new users being
+  // locked out is worse than the abuse this would prevent, especially since
+  // this route is a cheap DB write with no LLM/embedding cost to protect.
   const body: unknown = await request.json().catch(() => null);
   const parsed = profileInputSchema.safeParse(body);
   if (!parsed.success) {

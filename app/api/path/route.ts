@@ -9,6 +9,7 @@ import {
   getFeedbackCounts,
 } from '@/lib/courses';
 import {getLearnerIdFromRequest} from '@/lib/session';
+import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
 import type {Level} from '@/lib/types';
 
 // SRS FR-4: learning path generator. Takes the top-ranked recommendations,
@@ -21,6 +22,17 @@ export async function GET(request: NextRequest) {
   const learnerId = getLearnerIdFromRequest(request);
   if (!learnerId) {
     return NextResponse.json({error: 'No profile yet.'}, {status: 404});
+  }
+
+  const rateLimit = checkRateLimit('path', getRateLimitKey(request, learnerId));
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {error: 'Too many requests. Please slow down.'},
+      {
+        status: 429,
+        headers: {'Retry-After': String(rateLimit.retryAfterSeconds)},
+      },
+    );
   }
 
   const learner = await db.learner.findUnique({where: {id: learnerId}});
@@ -37,7 +49,15 @@ export async function GET(request: NextRequest) {
   }
 
   const goalText = `${learner.goal} Interests: ${interests.join(', ')}.`.trim();
-  const goalEmbedding = await embed(goalText);
+  let goalEmbedding: number[];
+  try {
+    goalEmbedding = await embed(goalText);
+  } catch {
+    return NextResponse.json(
+      {error: "Couldn't process your goal right now. Please try again."},
+      {status: 503},
+    );
+  }
 
   const courseById = await loadCourseMap();
   const completed = await getCompletedCourseIds(learner.id);

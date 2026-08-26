@@ -73,7 +73,15 @@ export async function POST(request: NextRequest) {
     const interests = JSON.parse(existing.interests) as string[];
     const goalText =
       `${existing.goal} Interests: ${interests.join(', ')}.`.trim();
-    const goalEmbedding = await embed(goalText);
+    let goalEmbedding: number[];
+    try {
+      goalEmbedding = await embed(goalText);
+    } catch {
+      return NextResponse.json(
+        {error: "Couldn't process your message right now. Please try again."},
+        {status: 503},
+      );
+    }
     const courseById = await loadCourseMap();
     const completed = await getCompletedCourseIds(existing.id);
     const levelAdjustment = computeLevelAdjustment(

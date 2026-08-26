@@ -58,7 +58,15 @@ export async function GET(request: NextRequest) {
       : DEFAULT_LIMIT;
 
   const goalText = `${learner.goal} Interests: ${interests.join(', ')}.`.trim();
-  const goalEmbedding = await embed(goalText);
+  let goalEmbedding: number[];
+  try {
+    goalEmbedding = await embed(goalText);
+  } catch {
+    return NextResponse.json(
+      {error: "Couldn't process your goal right now. Please try again."},
+      {status: 503},
+    );
+  }
 
   const courseById = await loadCourseMap();
   const completed = await getCompletedCourseIds(learner.id);
