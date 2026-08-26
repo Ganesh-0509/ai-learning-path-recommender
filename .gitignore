@@ -70,3 +70,10 @@ archive_2026-08-25/
 # packaged submission deliverable, generated on demand — not part of the
 # tracked source (it's an export of it)
 /ai-learning-path-recommender-source.zip
+
+# internal working docs — kept locally for our own reference, deliberately
+# not pushed to the public repo (day-by-day build log, a self-assessed score
+# estimate, and a large supplementary technical report)
+/PLAN.md
+/docs/SUBMISSION_READINESS.md
+/docs/TECHNICAL_REPORT.md
