@@ -117,8 +117,7 @@ LLM_MODEL="llama3.2:3b"
 EMBEDDING_MODEL="Xenova/all-MiniLM-L6-v2"
 ```
 
-No vendor-branded environment variable names are used anywhere in this project (see `PLAN.md`
-§3a).
+No vendor-branded environment variable names are used anywhere in this project.
 
 ## 6a. Catalog generation vs. DB seeding (two separate scripts, on purpose)
 
@@ -138,6 +137,12 @@ every deploy anyway. Re-run `generate-course-catalog.ts` and commit the updated
 
 ## 7. Deployment
 
+This was the originally-designed two-service Render plan (kept below for reference — the
+`render.yaml`/`Dockerfile` built from it are still in the repo, verified working locally). It was
+**not used for the actual submission** — see `docs/DEPLOYMENT.md` for the zero-budget decision
+(local execution + an on-demand Cloudflare Tunnel instead) and why every paid-tier-free hosting
+option was ruled out.
+
 1. Render private service: Docker image `ollama/ollama`, entrypoint pulls `llama3.2:3b` on first
    boot, exposes port 11434 on Render's internal network only.
 2. Render web service: Next.js app, `LLM_HOST` pointed at the internal Ollama service URL,
@@ -150,5 +155,5 @@ every deploy anyway. Re-run `generate-course-catalog.ts` and commit the updated
 
 - Local 3B-parameter inference on CPU is slower than a hosted API — acceptable for a hackathon
   demo, called out explicitly in the demo video rather than hidden.
-- Render's free tier RAM (512MB) is insufficient for `llama3.2:3b`; the Ollama service needs a
-  paid instance tier (see `PLAN.md` §8).
+- Render's free tier RAM (512MB) is insufficient for `llama3.2:3b`; the Ollama service would need
+  a paid instance tier — the reason the Render plan above was ultimately not used.

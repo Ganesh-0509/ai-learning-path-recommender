@@ -1,6 +1,6 @@
 /**
  * Deterministic category assignment for the 80 courses mined from the Round 1
- * dataset (PLAN.md §2). This is a closed classification of *known* course
+ * dataset. This is a closed classification of *known* course
  * titles — not a judgment call worth spending a local-LLM call on — so it's
  * a plain lookup table, kept separate from the LLM-driven level/description/
  * skills pass in scripts/generate-course-catalog.ts.

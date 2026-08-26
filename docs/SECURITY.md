@@ -1,9 +1,8 @@
 # Security
 
 This document is the working security checklist for the project — applied as code is written,
-not audited in after the fact. Local-model-only inference (see `PLAN.md` §3) already removes an
-entire class of risk (no learner data or prompts leave the deployed infrastructure to a
-third-party API).
+not audited in after the fact. Local-model-only inference already removes an entire class of risk
+(no learner data or prompts leave the deployed infrastructure to a third-party API).
 
 ## 1. Threat model (informal)
 

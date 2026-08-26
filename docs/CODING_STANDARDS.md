@@ -42,7 +42,7 @@ semicolons, consistent import ordering, and strict compiler options
 
 ## 4. Commit hygiene
 
-- Commits are scoped to one logical change, with a message describing why, matching the
-  day-by-day plan in `PLAN.md` §5 — this is also what "commit history should reflect the
-  development process" in the submission guidelines is checking for.
+- Commits are scoped to one logical change, with a message describing why — this is also what
+  "commit history should reflect the development process" in the submission guidelines is
+  checking for.
 - No secrets, no `node_modules`, no build output committed (`.gitignore` enforces this).

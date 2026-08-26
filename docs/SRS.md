@@ -5,7 +5,7 @@
 
 Web application: a learner interacts via chat and a dashboard; the system maintains a learner
 profile, a course catalog, a prerequisite graph, and generates/updates a personalized learning
-path. Reference: `PLAN.md` for architecture, `PRD.md` for product intent.
+path. Reference: `docs/TRD.md` for architecture, `docs/PRD.md` for product intent.
 
 ## 2. Functional requirements
 
@@ -73,9 +73,9 @@ path. Reference: `PLAN.md` for architecture, `PRD.md` for product intent.
 
 ## 4. Data requirements
 
-- Course catalog: id, title, description/topics, level, skills taught, prerequisite course ids,
-  embedding vector — seeded from Round 1's `train.csv` (80 courses) plus a local-LLM metadata
-  pass (see `PLAN.md` §2).
+- Course catalog: id, title, type (course/project/assessment), description/topics, level, skills
+  taught, prerequisite ids, embedding vector — seeded from Round 1's `train.csv` (80 courses) plus
+  a local-LLM metadata pass, extended with 26 generated project/assessment items.
 - Learner profile: id, interests, level, completed course ids, goal statement, created/updated
   timestamps.
 - Progress record: learner id, course id, status (not-started/in-progress/complete), feedback

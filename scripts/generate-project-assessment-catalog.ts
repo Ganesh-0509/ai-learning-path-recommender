@@ -9,9 +9,9 @@ import {embed, cosineSimilarity} from '../lib/embeddings';
 /**
  * One-time (rerun-on-demand) build tool: adds one capstone PROJECT and one
  * checkpoint ASSESSMENT per existing course category, closing the brief's
- * "courses, projects and assessments" requirement (docs/SUBMISSION_READINESS.md
- * §1a). Deliberately derives entirely from the already-generated
- * data/courses.seed.json — no archive_2026-08-25/train.csv dependency, unlike
+ * "courses, projects and assessments" requirement. Deliberately derives
+ * entirely from the already-generated data/courses.seed.json — no
+ * archive_2026-08-25/train.csv dependency, unlike
  * scripts/generate-course-catalog.ts, since category/course data already
  * exists to ground these on.
  *

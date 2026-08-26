@@ -8,12 +8,10 @@ All AI/ML inference (intent parsing, explanations, embeddings) runs on a **local
 open-source model** — no third-party AI API is called anywhere in this product. See
 [`docs/SECURITY.md`](docs/SECURITY.md) for why.
 
-**Project status:** feature-complete for submission — see [`docs/SUBMISSION_READINESS.md`](docs/SUBMISSION_READINESS.md)
-for the full requirements checklist and [`PLAN.md`](PLAN.md) for the day-by-day build history.
+**Project status:** feature-complete for submission.
 
 ## Documentation
 
-- [`PLAN.md`](PLAN.md) — architecture decisions, tech stack, build schedule
 - [`docs/PRD.md`](docs/PRD.md) — product requirements
 - [`docs/SRS.md`](docs/SRS.md) — functional/non-functional requirements
 - [`docs/TRD.md`](docs/TRD.md) — technical architecture, data model, API surface
@@ -23,8 +21,6 @@ for the full requirements checklist and [`PLAN.md`](PLAN.md) for the day-by-day 
 - [`docs/SOLUTION_DOCUMENTATION.md`](docs/SOLUTION_DOCUMENTATION.md) — problem understanding,
   solution approach, architecture, AI/ML techniques, features, challenges faced (submission
   deliverable #3)
-- [`docs/SUBMISSION_READINESS.md`](docs/SUBMISSION_READINESS.md) — requirements gap-check against
-  the brief and a self-assessed score estimate per judging criterion
 - [`docs/DEMO_VIDEO_SCRIPT.md`](docs/DEMO_VIDEO_SCRIPT.md) — storyboard for the required demo
   video (submission deliverable #4)
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Render deployment steps, cost expectations,
@@ -107,4 +103,11 @@ that can run the LLM continuously requires a paid tier). Two free access paths i
 
 ## Project structure
 
-See [`PLAN.md`](PLAN.md) §4 for the full repo layout.
+- `app/` — Next.js App Router pages and API route handlers
+- `components/` — React client components (chat, dashboard, markdown rendering)
+- `lib/` — shared server logic (ranking, path generation, LLM/embedding clients, session, rate limiting)
+- `scripts/` — one-time catalog generation/seeding tools
+- `prisma/` — database schema and migrations
+- `data/` — the committed course/project/assessment catalog
+- `tests/` — unit, end-to-end, and stress test suites
+- `docs/` — see the Documentation section above

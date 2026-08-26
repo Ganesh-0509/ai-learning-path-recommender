@@ -1,9 +1,9 @@
 import {test, expect} from '@playwright/test';
 
-// docs/SUBMISSION_READINESS.md §1a: the brief requires the roadmap to
-// include "courses, projects and assessments," not courses alone —
-// scripts/generate-project-assessment-catalog.ts adds one PROJECT and one
-// ASSESSMENT per category. Unlike the original 80 courses (stable,
+// The brief requires the roadmap to include "courses, projects and
+// assessments," not courses alone — scripts/generate-project-assessment-
+// catalog.ts adds one PROJECT and one ASSESSMENT per category. Unlike the
+// original 80 courses (stable,
 // hardcoded slugs other specs rely on), generated item ids depend on
 // LLM-chosen titles, so this spec discovers them dynamically rather than
 // hardcoding one.

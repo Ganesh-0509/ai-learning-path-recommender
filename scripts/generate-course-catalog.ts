@@ -58,9 +58,9 @@ type SeededCourse = CourseMetadata & {
 // Deliberately NOT enum-constraining `id` against the batch's course ids: an
 // enum repeated inside a fixed-length array item schema turned out to make
 // Ollama's CPU-side constrained decoding pathologically slow — it hung the
-// server outright on a 13-course batch (see PLAN.md §8). We validate the
-// returned ids against the expected set in code instead (classifyCategory
-// below), which is just as strict without the grammar blowup.
+// server outright on a 13-course batch. We validate the returned ids against
+// the expected set in code instead (classifyCategory below), which is just
+// as strict without the grammar blowup.
 function buildJsonSchema(itemCount: number) {
   return {
     type: 'object',
@@ -162,7 +162,7 @@ async function classifyCategory(
  * "Advanced Python Development" a prerequisite of "Modern JavaScript ES6
  * Plus" — same category, wrong subject. Embedding similarity naturally
  * clusters same-subject courses together even inside one coarse category,
- * without hand-splitting every category by language (PLAN.md §8).
+ * without hand-splitting every category by language.
  */
 function buildPrerequisites(
   coursesInCategory: {id: string; level: CourseMetadata['level']}[],

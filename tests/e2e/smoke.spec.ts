@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 
-// Placeholder until the real chat/onboarding flow lands (PLAN.md Day 2) — proves
-// the app boots and the Playwright harness itself is wired up correctly.
+// A basic smoke check that the app boots and the Playwright harness itself
+// is wired up correctly, independent of the fuller flows covered elsewhere.
 test('home page responds', async ({page}) => {
   const response = await page.goto('/');
   expect(response?.ok()).toBeTruthy();

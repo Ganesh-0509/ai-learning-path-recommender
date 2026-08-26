@@ -57,8 +57,7 @@ adaptation when their pace or interests change.
 ## 7. Constraints
 
 - All AI/ML inference runs on a **locally-hosted, open-source model** — no proprietary third-party
-  AI API calls anywhere in the product, and no vendor name referenced in code or docs (see
-  `PLAN.md` §3a).
+  AI API calls anywhere in the product, and no vendor name referenced in code or docs.
 - 6-day build window (2026-08-25 → 2026-08-30, submit by 2026-08-31 11:59pm IST).
 - Course catalog seeded from the Round 1 assessment dataset (80 synthetic courses) since no
   licensed real course catalog is available for this submission.

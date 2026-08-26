@@ -2,8 +2,9 @@
 
 A ready-to-record storyboard for the required demo video. Recording itself is a manual step —
 screen-record locally (e.g. OBS, or Windows' built-in Xbox Game Bar / Snipping Tool recorder)
-narrating live, or record silent screen capture and voice over it afterward. Run against the
-deployed URL once live (`PLAN.md` §5 Day 6), or `npm run dev` locally beforehand to rehearse.
+narrating live, or record silent screen capture and voice over it afterward. Run against
+`npm run dev` locally, or the Cloudflare Tunnel URL (`npm run tunnel`) if recording against a
+live public link (see `docs/DEPLOYMENT.md`).
 
 ## Before recording
 

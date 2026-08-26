@@ -10,14 +10,16 @@ datasource db {
   provider = "sqlite"
 }
 
-/// A catalog entry seeded from the Round 1 dataset (see PLAN.md §2), enriched with
+/// A catalog entry seeded from the Round 1 dataset, enriched with
 /// level/skills/prerequisites via a one-time local-LLM metadata pass.
 model Course {
   id            String   @id
   title         String
-  /// COURSE (default) | PROJECT | ASSESSMENT — added to close the brief's
-  /// "courses, projects and assessments" requirement without renaming the
-  /// model (see docs/SUBMISSION_READINESS.md §1a).
+  /// COURSE (default) | PROJECT | ASSESSMENT — the brief's roadmap spans
+  /// courses, projects, and assessments, not courses alone; kept on the
+  /// existing model rather than a new table since ranking, the prerequisite
+  /// graph, and progress tracking already generalize to any item shaped
+  /// like a course.
   type          ItemType @default(COURSE)
   /// Deterministic classification, not an LLM judgment — see
   /// scripts/lib/course-categories.ts.

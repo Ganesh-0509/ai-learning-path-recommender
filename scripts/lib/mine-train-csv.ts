@@ -11,8 +11,9 @@ export type MinedCourse = {
 const SAMPLES_PER_COURSE = 3;
 
 /**
- * Streams Round 1's train.csv and groups reviews by course title — see
- * PLAN.md §2 for why this dataset is reused as the catalog seed.
+ * Streams Round 1's train.csv and groups reviews by course title — reused
+ * for its realistic course-name/topic vocabulary as the catalog seed, since
+ * no licensed real course catalog was available for this submission.
  */
 export async function mineCourses(csvPath: string): Promise<MinedCourse[]> {
   const byTitle = new Map<string, MinedCourse>();

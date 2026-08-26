@@ -2,7 +2,7 @@ import ChatWindow from '@/components/Chat/ChatWindow';
 
 // Forces dynamic rendering — a statically prerendered page's headers are
 // baked in at build time, which would serve a stale (nonce-less) CSP header
-// from proxy.ts and break hydration entirely (see PLAN.md §8).
+// from proxy.ts and break hydration entirely.
 export const dynamic = 'force-dynamic';
 
 export default function Home() {

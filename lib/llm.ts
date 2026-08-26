@@ -2,8 +2,8 @@ import {z} from 'zod';
 
 /**
  * Client for the locally-hosted, self-hosted LLM (Ollama). No third-party AI
- * API is called anywhere in this module — see docs/SECURITY.md and PLAN.md
- * §3a for why that's a hard constraint, not a preference.
+ * API is called anywhere in this module — see docs/SECURITY.md for why
+ * that's a hard constraint, not a preference.
  */
 
 const DEFAULT_HOST = 'http://localhost:11434';
