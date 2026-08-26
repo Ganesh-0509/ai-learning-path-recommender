@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
         return {
           id: course.id,
           title: course.title,
+          type: course.type,
           category: course.category,
           description: course.description,
           skillsTaught: course.skillsTaught,

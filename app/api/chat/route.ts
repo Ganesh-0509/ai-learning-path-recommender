@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
         title: r.course.title,
         level: r.course.level,
         description: r.course.description,
+        type: r.course.type,
       })),
     });
 

@@ -8,7 +8,7 @@ a unit test for pure logic), it isn't considered done.
 
 | Layer | Tool | Covers |
 |---|---|---|
-| Unit | Node test runner / Vitest | Pure logic: recommendation ranking (cosine similarity + level re-weighting), prerequisite expansion, topological sort, milestone chunking |
+| Unit | Node test runner / Vitest | Pure logic: recommendation ranking (cosine similarity + level re-weighting), prerequisite expansion, topological sort, milestone chunking (including the depth-clamping fix that lets a PROJECT/ASSESSMENT with a 3+-deep chain still land in a single "Applied Practice" milestone rather than a duplicate one) |
 | Integration | Playwright `APIRequestContext` | API routes directly (`/api/chat`, `/api/profile`, `/api/recommend`, `/api/path`, `/api/progress`) — request/response contracts, validation error paths |
 | End-to-end (functional) | Playwright, browser mode | Full user flows through the actual UI |
 | Stress / concurrency | Playwright, many parallel contexts or `APIRequestContext` | Behavior under concurrent load, not just single-user correctness |
@@ -27,6 +27,12 @@ a unit test for pure logic), it isn't considered done.
   update after a progress event.
 - `feedback-loop.spec.ts` — marking a course complete / giving feedback (too easy/hard/skip)
   measurably changes the generated path (regression test for FR-4.4).
+- `item-types.spec.ts` — the catalog's PROJECT/ASSESSMENT items (added by
+  `scripts/generate-project-assessment-catalog.ts`) surface through `/api/recommend` and
+  `/api/path` with a valid `type`, and `/api/explain` works for a non-course item, not just a
+  course. Since generated item ids aren't stable hardcoded slugs like the original 80 courses,
+  this spec discovers ids dynamically via a goal confirmed to reliably rank a project and
+  assessment into the top-5 path seeds, rather than assuming any specific id.
 
 ## 3. Security-relevant specs
 

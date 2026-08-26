@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
     recommendations: ranked.slice(0, limit).map(r => ({
       id: r.course.id,
       title: r.course.title,
+      type: r.course.type,
       category: r.course.category,
       description: r.course.description,
       skillsTaught: r.course.skillsTaught,

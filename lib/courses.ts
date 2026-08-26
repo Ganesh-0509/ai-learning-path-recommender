@@ -1,10 +1,11 @@
 import {db} from './db';
-import type {CourseLike, Level} from './types';
+import type {CourseLike, ItemType, Level} from './types';
 
 /** Superset of CourseLike with the display fields the API responses need —
  * lib/recommend.ts and lib/prereq-graph.ts only read the CourseLike subset,
  * so this stays a drop-in wherever a CourseLike is expected. */
 export type CourseRecord = CourseLike & {
+  type: ItemType;
   category: string;
   description: string;
   skillsTaught: string[];
@@ -20,6 +21,7 @@ export async function loadCourseMap(): Promise<Map<string, CourseRecord>> {
       {
         id: row.id,
         title: row.title,
+        type: row.type as ItemType,
         level: row.level as Level,
         category: row.category,
         description: row.description,

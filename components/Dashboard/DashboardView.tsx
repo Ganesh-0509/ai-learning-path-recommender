@@ -3,7 +3,7 @@
 import {useCallback, useEffect, useState} from 'react';
 import Link from 'next/link';
 import MarkdownText from '@/components/MarkdownText';
-import {LEVELS, type Level} from '@/lib/types';
+import {LEVELS, nounForItemType, type ItemType, type Level} from '@/lib/types';
 
 // SRS FR-6: dashboard — progress, skills, milestones, next recommended
 // action. Reads /api/profile + /api/path (which already reflects Progress
@@ -12,6 +12,7 @@ import {LEVELS, type Level} from '@/lib/types';
 type Course = {
   id: string;
   title: string;
+  type: ItemType;
   category: string;
   description: string;
   skillsTaught: string[];
@@ -35,6 +36,20 @@ const LEVEL_LABELS: Record<Level, string> = {
   BEGINNER: 'Beginner',
   INTERMEDIATE: 'Intermediate',
   ADVANCED: 'Advanced',
+};
+
+const ITEM_TYPE_LABELS: Record<ItemType, string> = {
+  COURSE: 'Course',
+  PROJECT: 'Project',
+  ASSESSMENT: 'Assessment',
+};
+
+const ITEM_TYPE_BADGE_CLASSES: Record<ItemType, string> = {
+  COURSE: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
+  PROJECT:
+    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+  ASSESSMENT:
+    'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
 };
 
 export default function DashboardView() {
@@ -249,7 +264,7 @@ export default function DashboardView() {
           />
         </div>
         <p className="mt-1 text-xs text-zinc-500">
-          {completedCount} / {allCourses.length} courses complete (
+          {completedCount} / {allCourses.length} items complete (
           {progressPercent}%)
         </p>
       </section>
@@ -271,7 +286,7 @@ export default function DashboardView() {
       {milestones !== null && milestones.length === 0 && (
         <section className="rounded-lg border border-dashed border-zinc-300 p-4 text-center dark:border-zinc-700">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            We couldn&apos;t match courses to this goal yet — try adding more
+            We couldn&apos;t match anything to this goal yet — try adding more
             detail (a specific skill or role) in chat.
           </p>
           <Link
@@ -297,9 +312,16 @@ export default function DashboardView() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                        {course.title}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                          {course.title}
+                        </p>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${ITEM_TYPE_BADGE_CLASSES[course.type]}`}
+                        >
+                          {ITEM_TYPE_LABELS[course.type]}
+                        </span>
+                      </div>
                       <p className="text-xs text-zinc-500">
                         {course.description}
                       </p>
@@ -344,7 +366,7 @@ export default function DashboardView() {
                     >
                       {explaining === course.id
                         ? 'Thinking…'
-                        : 'Why this course?'}
+                        : `Why this ${nounForItemType(course.type)}?`}
                     </button>
                   )}
 

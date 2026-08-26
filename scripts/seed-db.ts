@@ -18,10 +18,14 @@ const SEED_PATH = path.resolve(
 );
 
 const levelSchema = z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']);
+const itemTypeSchema = z.enum(['COURSE', 'PROJECT', 'ASSESSMENT']);
 
 const seedCourseSchema = z.object({
   id: z.string(),
   title: z.string(),
+  // Defaults to COURSE so this stays backward-compatible with a seed file
+  // generated before scripts/generate-project-assessment-catalog.ts existed.
+  type: itemTypeSchema.default('COURSE'),
   category: z.string(),
   level: levelSchema,
   description: z.string(),
@@ -50,6 +54,7 @@ async function main() {
       create: {
         id: course.id,
         title: course.title,
+        type: course.type,
         category: course.category,
         description: course.description,
         level: course.level,
@@ -59,6 +64,7 @@ async function main() {
       },
       update: {
         title: course.title,
+        type: course.type,
         category: course.category,
         description: course.description,
         level: course.level,

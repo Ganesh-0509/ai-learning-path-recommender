@@ -48,6 +48,8 @@ the deployed infrastructure to a third-party AI API.
 model Course {
   id             String   @id
   title          String
+  type           String   // course | project | assessment (default: course)
+  category       String
   description    String
   level          String   // beginner | intermediate | advanced
   skillsTaught   String   // JSON-encoded string array

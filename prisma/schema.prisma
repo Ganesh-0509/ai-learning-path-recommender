@@ -15,6 +15,10 @@ datasource db {
 model Course {
   id            String   @id
   title         String
+  /// COURSE (default) | PROJECT | ASSESSMENT — added to close the brief's
+  /// "courses, projects and assessments" requirement without renaming the
+  /// model (see docs/SUBMISSION_READINESS.md §1a).
+  type          ItemType @default(COURSE)
   /// Deterministic classification, not an LLM judgment — see
   /// scripts/lib/course-categories.ts.
   category      String
@@ -39,6 +43,12 @@ enum Level {
   BEGINNER
   INTERMEDIATE
   ADVANCED
+}
+
+enum ItemType {
+  COURSE
+  PROJECT
+  ASSESSMENT
 }
 
 /// A single-session learner profile — no multi-tenant auth in this submission's scope

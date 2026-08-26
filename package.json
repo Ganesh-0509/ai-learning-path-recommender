@@ -14,6 +14,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "generate-catalog": "tsx scripts/generate-course-catalog.ts",
+    "generate-project-assessment-catalog": "tsx scripts/generate-project-assessment-catalog.ts",
     "seed": "tsx scripts/seed-db.ts",
     "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
     "test:e2e": "playwright test tests/e2e",

@@ -81,6 +81,12 @@ absorbed for us. See [`docs/SECURITY.md`](SECURITY.md) for the full reasoning.
 - **Course catalog**: seeded from the Round 1 assessment dataset (80 synthetic courses; see §6),
   enriched with level/description/skills/prerequisites and committed to the repo as
   `data/courses.seed.json` so deploys don't depend on a multi-minute LLM pass succeeding.
+- **Catalog content types**: `Course.type` (`COURSE | PROJECT | ASSESSMENT`) distinguishes the 80
+  original courses from 26 generated project/assessment items (one capstone project and one
+  checkpoint assessment per category, 13 categories) — the brief's roadmap spans all three, not
+  courses alone. Kept as a field on the existing model rather than a new table, since ranking,
+  the prerequisite graph, and progress tracking already generalize to any item shaped like a
+  course; see `scripts/generate-project-assessment-catalog.ts`.
 
 Full detail, including the data model and API surface, in [`docs/TRD.md`](TRD.md).
 
@@ -120,16 +126,18 @@ Mapped to the brief's six required capabilities:
 2. **Learner profiling engine** — interests, level, and goal persist to a `Learner` row via a
    session cookie (no account system in scope for this submission), buildable either through chat
    or the dashboard's level selector.
-3. **Recommendation engine** — `/api/recommend` ranks the catalog by goal-embedding similarity,
-   filtered by completed courses.
+3. **Recommendation engine** — `/api/recommend` ranks the catalog — courses, projects, and
+   assessments alike — by goal-embedding similarity, filtered by completed items.
 4. **Learning path generator** — `/api/path` takes the top recommendations, expands them with
    prerequisites, and groups the result into "Foundations / Core Skill / Applied Practice"
-   milestones.
-5. **Explainer + Q&A** — `/api/explain` answers "why this course"; `/api/chat` answers path
-   questions ("how long will this take") — both grounded per §4.
-6. **Dashboard** — progress bar, skills taught per course, milestone timeline, next recommended
-   action, and a "Mark complete" action that feeds directly back into the next `/api/recommend`
-   call (completed courses are excluded going forward).
+   milestones; a project or assessment lands in whichever tier its own prerequisite depth puts it
+   in, with no special-casing.
+5. **Explainer + Q&A** — `/api/explain` answers "why this course/project/assessment," adapting its
+   wording to the item's actual type; `/api/chat` answers path questions ("how long will this
+   take") — both grounded per §4.
+6. **Dashboard** — progress bar, skills taught per item, a type badge (course/project/assessment),
+   milestone timeline, next recommended action, and a "Mark complete" action that feeds directly
+   back into the next `/api/recommend` call (completed items are excluded going forward).
 
 **End-to-end workflow**: learner opens the chat → states a goal → profile is created →
 `View your learning path` link appears once a goal is set → dashboard shows the generated
@@ -202,10 +210,10 @@ verified property.
 
 ## 8. Verification
 
-Every capability above is backed by a passing automated test, not a manual claim — 20 unit specs
-(pure ranking/path-generation/rate-limit logic) and 33 Playwright end-to-end specs (API-layer,
-real-browser, security/adversarial) plus 3 dedicated stress specs, including 7 e2e flows that
-exercise the actual local LLM; all 56 pass via `npm test` (`test:e2e` then `test:stress`, run
+Every capability above is backed by a passing automated test, not a manual claim — 21 unit specs
+(pure ranking/path-generation/rate-limit logic) and 36 Playwright end-to-end specs (API-layer,
+real-browser, security/adversarial) plus 3 dedicated stress specs, including 6 e2e flows that
+exercise the actual local LLM; all 60 pass via `npm test` (`test:e2e` then `test:stress`, run
 sequentially — see below for why that ordering matters). Stress testing (`tests/stress/`)
 simulates concurrent learners with independent cookie jars, not one client racing itself: 20
 concurrent learners hitting `/api/recommend` and `/api/progress` completed with

@@ -65,6 +65,22 @@ test('groupIntoMilestones keeps courses at the same depth together', () => {
   assert.deepEqual(milestones[0].courseIds.sort(), ['a', 'b']);
 });
 
+test('groupIntoMilestones collapses any depth beyond 2 into Applied Practice', () => {
+  // A project depending on a course whose own chain is already 2-deep
+  // reaches depth 3 — this is the mechanism that lands generated
+  // PROJECT/ASSESSMENT items (scripts/generate-project-assessment-catalog.ts)
+  // in the right milestone without any change to this function.
+  const courses = toMap([
+    course('a'),
+    course('b', ['a']),
+    course('c', ['b']),
+    course('project', ['c']),
+  ]);
+  const milestones = groupIntoMilestones(['a', 'b', 'c', 'project'], courses);
+  assert.equal(milestones.length, 3); // not 4 — depth 3 clamps with depth 2
+  assert.deepEqual(milestones[2].courseIds.sort(), ['c', 'project']);
+});
+
 test('buildPath runs the full expand -> sort -> group pipeline', () => {
   const courses = toMap([
     course('py-beginner'),

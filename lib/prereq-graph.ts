@@ -121,9 +121,16 @@ export function groupIntoMilestones(
     depth.set(id, prereqDepths.length > 0 ? Math.max(...prereqDepths) : 0);
   }
 
+  // Bucket by CLAMPED depth, not raw depth — titleForDepth already clamps
+  // anything past MILESTONE_TITLES.length-1 to the same title text, so
+  // bucketing by raw depth would otherwise produce two separate milestone
+  // entries both titled "Applied Practice" instead of one merged milestone
+  // (only reachable once something has a 3+-deep chain — e.g. a generated
+  // PROJECT depending on a course whose own chain is already 2 deep; see
+  // tests/unit/prereq-graph.test.ts).
   const byDepth = new Map<number, string[]>();
   for (const id of sortedIds) {
-    const d = depth.get(id) ?? 0;
+    const d = Math.min(depth.get(id) ?? 0, MILESTONE_TITLES.length - 1);
     const bucket = byDepth.get(d) ?? [];
     bucket.push(id);
     byDepth.set(d, bucket);
