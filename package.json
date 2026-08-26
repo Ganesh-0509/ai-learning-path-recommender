@@ -19,7 +19,8 @@
     "test:e2e": "playwright test tests/e2e",
     "test:stress": "playwright test tests/stress",
     "test": "npm run test:e2e && npm run test:stress",
-    "tunnel": "cloudflared tunnel --url http://localhost:3000"
+    "tunnel": "cloudflared tunnel --url http://localhost:3000",
+    "docs:pdf": "tsx scripts/generate-solution-pdf.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -41,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "gts": "^7.0.0",
+    "marked": "^18.0.11",
     "prisma": "^7.9.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
