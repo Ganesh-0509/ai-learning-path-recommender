@@ -2,6 +2,7 @@
 
 import {useCallback, useEffect, useState} from 'react';
 import Link from 'next/link';
+import MarkdownText from '@/components/MarkdownText';
 import {LEVELS, type Level} from '@/lib/types';
 
 // SRS FR-6: dashboard — progress, skills, milestones, next recommended
@@ -126,8 +127,23 @@ export default function DashboardView() {
       if (!response.ok) {
         throw new Error('Request failed');
       }
-      const data = await response.json();
-      setExplanations(prev => ({...prev, [courseId]: data.explanation}));
+      // Streamed — appears progressively rather than after a multi-second
+      // silent wait (docs/TRD.md §4.3 grounding still applies server-side;
+      // this only changes how the same text arrives at the client).
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+      const decoder = new TextDecoder();
+      while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, {stream: true});
+        setExplanations(prev => ({
+          ...prev,
+          [courseId]: (prev[courseId] ?? '') + chunk,
+        }));
+      }
     } catch {
       setActionErrors(prev => ({
         ...prev,
@@ -316,9 +332,9 @@ export default function DashboardView() {
                   </div>
 
                   {explanations[course.id] ? (
-                    <p className="text-xs italic text-zinc-600 dark:text-zinc-400">
-                      {explanations[course.id]}
-                    </p>
+                    <div className="text-xs italic text-zinc-600 dark:text-zinc-400">
+                      <MarkdownText text={explanations[course.id]} />
+                    </div>
                   ) : (
                     <button
                       type="button"

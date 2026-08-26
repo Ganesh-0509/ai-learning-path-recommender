@@ -37,16 +37,18 @@ test('N concurrent learners chatting simultaneously stay isolated, no crash', as
           timeout: 90_000,
         });
         latencies.push(Date.now() - start);
-        return {
-          learner,
-          status: response.status(),
-          body: await response.json(),
-        };
+        // Read as text first — a non-200 response (e.g. the LLM call timing
+        // out under load, see app/api/chat/route.ts) isn't guaranteed to be
+        // parseable JSON, and asserting on status first gives a clear
+        // failure message instead of a raw JSON-parse crash.
+        const text = await response.text();
+        return {learner, status: response.status(), text};
       }),
     );
 
-    for (const {learner, status, body} of results) {
+    for (const {learner, status, text} of results) {
       expect(status, `learner ${learner.id}`).toBe(200);
+      const body = JSON.parse(text);
       expect(typeof body.reply).toBe('string');
       expect(body.reply.length).toBeGreaterThan(0);
     }

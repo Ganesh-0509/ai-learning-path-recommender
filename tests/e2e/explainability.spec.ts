@@ -23,6 +23,10 @@ test.describe('explain API', () => {
   test('explains a real recommendation grounded in evidence', async ({
     request,
   }) => {
+    // Real local-LLM latency has been observed up to ~35s under load (see
+    // tests/stress) — occasionally exceeding Playwright's default 30s
+    // per-test timeout is expected variance, not a bug.
+    test.setTimeout(90_000);
     await request.post('/api/profile', {
       data: {goal: 'I want to learn Python from scratch', level: 'BEGINNER'},
     });
@@ -34,9 +38,11 @@ test.describe('explain API', () => {
       data: {courseId: recommendations[0].id},
     });
     expect(response.status()).toBe(200);
-    const body = await response.json();
-    expect(typeof body.explanation).toBe('string');
-    expect(body.explanation.length).toBeGreaterThan(0);
+    // Streamed as plain text (see lib/explain.ts's explainRecommendationStream)
+    // rather than JSON, so the explanation appears progressively in the UI.
+    expect(response.headers()['content-type']).toContain('text/plain');
+    const explanation = await response.text();
+    expect(explanation.length).toBeGreaterThan(0);
   });
 });
 
@@ -44,6 +50,7 @@ test.describe('chat Q&A grounded in the current path', () => {
   test('a question about the path does not invent an off-list course', async ({
     request,
   }) => {
+    test.setTimeout(90_000);
     await request.post('/api/profile', {
       data: {
         goal: 'I want to learn web development with React',
@@ -55,11 +62,18 @@ test.describe('chat Q&A grounded in the current path', () => {
       data: {message: 'How long will this path take?'},
     });
     expect(chatResponse.status()).toBe(200);
-    const chatBody = await chatResponse.json();
-    expect(typeof chatBody.reply).toBe('string');
-    expect(chatBody.reply.length).toBeGreaterThan(0);
+    // Streamed (see lib/qa.ts's answerPathQuestionStream) — profile rides
+    // along in a header instead of the JSON body the intent-extraction
+    // branch returns.
+    expect(chatResponse.headers()['content-type']).toContain('text/plain');
+    const reply = await chatResponse.text();
+    expect(reply.length).toBeGreaterThan(0);
+    const profileHeader = chatResponse.headers()['x-profile'];
+    expect(profileHeader).toBeTruthy();
+    const profile = JSON.parse(decodeURIComponent(profileHeader));
+    expect(profile.goal).toContain('web development');
     // Grounding contract: for a web-dev goal, the answer must not claim an
     // unrelated-domain course (e.g. blockchain) is part of the path.
-    expect(chatBody.reply).not.toMatch(/blockchain|solidity/i);
+    expect(reply).not.toMatch(/blockchain|solidity/i);
   });
 });

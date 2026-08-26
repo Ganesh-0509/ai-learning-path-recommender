@@ -43,11 +43,25 @@ a unit test for pure logic), it isn't considered done.
 - `concurrent-chat.spec.ts` — N simulated learners (parallel Playwright contexts) send chat
   messages concurrently; assert all requests complete successfully, no cross-learner data
   bleed (learner A never sees learner B's profile/recommendations), and record p50/p95 latency.
-- `concurrent-progress.spec.ts` — concurrent progress-update requests for different learners
-  don't corrupt each other's stored state (a correctness assertion under load, not just a
-  performance number).
+- `concurrent-recommend-progress.spec.ts` — concurrent recommend/progress-update requests for
+  different learners don't corrupt each other's stored state (a correctness assertion under
+  load, not just a performance number).
+- `concurrent-streaming.spec.ts` — concurrent learners hitting the two streamed real-LLM routes
+  (`/api/explain`, `/api/chat`'s Q&A branch) together; same isolation/no-crash assertions, plus
+  content-type/streamed-body handling. Capped at 3 concurrent learners (2 real-LLM calls each) —
+  at 5 it empirically exceeded even a 120s per-call timeout, because Ollama serializes requests
+  to one model and this spec drives two full round trips per learner. That is a genuine capacity
+  ceiling of single-instance local inference, documented in the solution documentation rather
+  than papered over with larger timeouts.
 - Results (latency distribution, error rate at N concurrent sessions) get written into the
   solution documentation as evidence, not just run-and-discard.
+- `npm test` runs `test:e2e` to completion, then `test:stress` — deliberately sequential, not
+  parallel, so the e2e suite's own real-LLM specs (explainability, prompt-injection, onboarding)
+  never stack their Ollama load on top of the stress specs' concurrent load. Running the whole
+  suite in one fully-parallel pass instead (`npx playwright test` with no path filter) hammers a
+  single local Ollama instance with everything at once and can trip the timeout/graceful-
+  degradation path described in the solution documentation — expected under that unrealistic
+  combined load, not evidence of a bug.
 
 ## 5. UI/UX verification
 

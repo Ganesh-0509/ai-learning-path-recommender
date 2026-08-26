@@ -2,7 +2,7 @@ import {NextResponse, type NextRequest} from 'next/server';
 import {z} from 'zod';
 import {db} from '@/lib/db';
 import {extractIntent} from '@/lib/intent';
-import {answerPathQuestion} from '@/lib/qa';
+import {answerPathQuestionStream} from '@/lib/qa';
 import {embed} from '@/lib/embeddings';
 import {rankCourses, computeLevelAdjustment} from '@/lib/recommend';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/lib/courses';
 import {getLearnerIdFromRequest, setLearnerIdCookie} from '@/lib/session';
 import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
+import {textStreamFromGenerator} from '@/lib/stream-utils';
 import type {Level} from '@/lib/types';
 
 // SRS FR-1: conversational intake. Extracts structured intent from the
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       completed,
     );
 
-    const answer = await answerPathQuestion(message, {
+    const stream = answerPathQuestionStream(message, {
       goal: existing.goal,
       recommendations: ranked.slice(0, 5).map(r => ({
         title: r.course.title,
@@ -90,21 +91,41 @@ export async function POST(request: NextRequest) {
       })),
     });
 
-    const response = NextResponse.json({
-      reply: answer,
-      needsClarification: false,
-      profile: {
-        id: existing.id,
-        goal: existing.goal,
-        level: existing.level,
-        interests,
+    // Streamed as it generates (this is the higher-frequency chat
+    // interaction once a goal exists) — profile data rides along as a
+    // response header since the body is plain streamed text, not JSON; the
+    // client tells this apart from the intent-extraction branch below by
+    // Content-Type.
+    const response = new NextResponse(textStreamFromGenerator(stream), {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Profile': encodeURIComponent(
+          JSON.stringify({
+            id: existing.id,
+            goal: existing.goal,
+            level: existing.level,
+            interests,
+          }),
+        ),
       },
     });
     setLearnerIdCookie(response, existing.id);
     return response;
   }
 
-  const intent = await extractIntent(message, history);
+  let intent;
+  try {
+    intent = await extractIntent(message, history);
+  } catch {
+    // The local LLM call can time out under heavy concurrent load (see
+    // tests/stress/concurrent-chat.spec.ts) — surface a clean, well-formed
+    // error instead of letting the exception crash the route handler with
+    // an empty/malformed response body.
+    return NextResponse.json(
+      {error: 'The assistant is taking too long to respond. Please try again.'},
+      {status: 503},
+    );
+  }
 
   const mergedInterests =
     intent.interests && intent.interests.length > 0

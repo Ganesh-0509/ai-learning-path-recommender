@@ -91,6 +91,79 @@ export async function chat(
   return parsed.message.content;
 }
 
+const ollamaStreamChunkSchema = z.object({
+  message: z.object({content: z.string()}).optional(),
+  done: z.boolean(),
+});
+
+/**
+ * Streaming counterpart to `chat` — yields text chunks as Ollama generates
+ * them, instead of waiting for the full reply. Only for plain-text output
+ * (no `format` JSON Schema): a partial JSON document isn't meaningfully
+ * streamable to a UI, so structured calls stay on `chat`/`chatStructured`.
+ * Used for the highest-frequency LLM interactions (explain, path Q&A) so
+ * the wait is visibly happening rather than a silent multi-second pause.
+ */
+export async function* chatStream(
+  messages: ChatMessage[],
+  options: Omit<ChatOptions, 'format'> = {},
+): AsyncGenerator<string> {
+  let response: Response;
+  try {
+    response = await fetch(`${getHost()}/api/chat`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: getModel(),
+        messages,
+        stream: true,
+        options:
+          options.temperature === undefined
+            ? undefined
+            : {temperature: options.temperature},
+      }),
+      signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      throw new Error(
+        `Local LLM request timed out after ${options.timeoutMs ?? DEFAULT_TIMEOUT_MS}ms. ` +
+          `Is Ollama running? Try \`ollama serve\` and \`ollama pull ${getModel()}\`.`,
+      );
+    }
+    throw error;
+  }
+
+  if (!response.ok || !response.body) {
+    throw new Error(
+      `Local LLM request failed (${response.status}): ${await response.text()}. ` +
+        `Is Ollama running? Try \`ollama serve\` and \`ollama pull ${getModel()}\`.`,
+    );
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, {stream: true});
+
+    // Ollama's streaming response is newline-delimited JSON — one object
+    // per line, the last line's content may still be mid-flight.
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const chunk = ollamaStreamChunkSchema.parse(JSON.parse(line));
+      if (chunk.message?.content) {
+        yield chunk.message.content;
+      }
+    }
+  }
+}
+
 /**
  * Calls the LLM with a JSON Schema and validates the reply against a Zod
  * schema, retrying with a corrective follow-up message on failure. Malformed

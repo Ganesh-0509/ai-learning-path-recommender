@@ -2,11 +2,19 @@
 
 import {useState, type FormEvent} from 'react';
 import Link from 'next/link';
+import MarkdownText from '@/components/MarkdownText';
 
 // SRS FR-1: conversational interface. Talks to /api/chat, which extracts
 // structured intent (lib/intent.ts) and updates the learner profile as a
 // side effect — this component just renders the conversation and surfaces a
 // link to the dashboard once there's enough profile to generate a path.
+//
+// /api/chat returns two different response shapes depending on which
+// branch it took: JSON for intent extraction, or a streamed plain-text body
+// (with profile data riding in the X-Profile header) for the path-Q&A
+// branch — told apart here by Content-Type, since the Q&A branch is the
+// higher-frequency interaction once a goal exists and streaming makes the
+// wait visibly happen instead of a silent multi-second pause.
 
 type Message = {
   role: 'user' | 'assistant';
@@ -30,8 +38,29 @@ export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasGoal, setHasGoal] = useState(false);
+
+  async function consumeStream(response: Response) {
+    setMessages(prev => [...prev, {role: 'assistant', content: ''}]);
+    setStreaming(true);
+    const reader = response.body?.getReader();
+    if (!reader) return;
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, {stream: true});
+      setMessages(prev => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        next[next.length - 1] = {...last, content: last.content + chunk};
+        return next;
+      });
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -63,15 +92,31 @@ export default function ChatWindow() {
         throw new Error(`Chat request failed (${response.status})`);
       }
 
-      const data: ChatResponse = await response.json();
-      setMessages(prev => [...prev, {role: 'assistant', content: data.reply}]);
-      setHasGoal(Boolean(data.profile.goal));
+      if (response.headers.get('content-type')?.includes('text/plain')) {
+        await consumeStream(response);
+        // The Q&A branch only ever runs once a goal already exists, so
+        // hasGoal is already true — the X-Profile header exists for
+        // completeness/robustness, not because this path changes it.
+        const profileHeader = response.headers.get('x-profile');
+        if (profileHeader) {
+          const profile = JSON.parse(decodeURIComponent(profileHeader));
+          setHasGoal(Boolean(profile.goal));
+        }
+      } else {
+        const data: ChatResponse = await response.json();
+        setMessages(prev => [
+          ...prev,
+          {role: 'assistant', content: data.reply},
+        ]);
+        setHasGoal(Boolean(data.profile.goal));
+      }
     } catch {
       setError(
         'Something went wrong reaching the assistant. Please try again.',
       );
     } finally {
       setLoading(false);
+      setStreaming(false);
     }
   }
 
@@ -94,10 +139,10 @@ export default function ChatWindow() {
             <span className="sr-only">
               {message.role === 'user' ? 'You: ' : 'Assistant: '}
             </span>
-            {message.content}
+            <MarkdownText text={message.content} />
           </div>
         ))}
-        {loading && (
+        {loading && !streaming && (
           <div className="mr-auto max-w-[80%] rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
             Thinking…
           </div>

@@ -19,6 +19,11 @@ async function sendAndWaitForReply(page: Page, message: string) {
 test('a learner can state a goal through chat and reach the dashboard', async ({
   page,
 }) => {
+  // Up to two real local-LLM round trips (initial goal + a possible
+  // clarifying answer), each observed up to ~35s under load (see
+  // tests/stress) — Playwright's default 30s per-test timeout covers only
+  // one such trip, so this needs headroom for both.
+  test.setTimeout(120_000);
   await page.goto('/');
   await expect(page.getByRole('log')).toContainText(
     "Tell me what you're trying to learn",
