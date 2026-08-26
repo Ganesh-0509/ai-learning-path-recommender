@@ -76,17 +76,15 @@ and "UX" in particular are subjective. Treat the ranges as informed estimates, n
 | Functionality & Feature Completeness | 25% | **22–24 / 25** | All six named capabilities work end-to-end and are test-covered; feedback loop (mark complete → re-rank) is implemented, not just described; the roadmap now spans courses, projects, and assessments as the brief describes. The remaining ding is the lack of an account system (session-cookie-based single-profile-per-browser, explicitly scoped out, not hidden). |
 | AI/ML Implementation | 20% | **17–19 / 20** | Real embedding-based ranking (not keyword match), RAG-grounded explanations with a demonstrated-and-fixed prompt-injection defense, structured-output validation with retry, and a hybrid deterministic+LLM catalog pipeline that used the LLM only where it added value. Entirely self-hosted, which is harder to pull off well than calling a frontier API and is demonstrated working under real (if serialized) concurrent load. |
 | Innovation & Creativity | 15% | **10–13 / 15** | The zero-vendor-API constraint, structural prompt-injection defense (delimiters + server-pinned course identity, not just prompt wording), and the honest stress-test-driven graceful-degradation work are genuine differentiators most entrants likely won't have. Less "wow-factor" than a flashier but shallower feature set would produce — this is the most subjective line item and the widest range. |
-| User Experience & Interface | 10% | **7–8 / 10** | Streaming responses + real markdown rendering (not a raw prose dump) address what was previously the weakest part of the experience. An `impeccable`-driven UI polish pass already happened once (Day 4). No fresh design audit ran this session — if there's time, a follow-up UX pass targeting empty/loading/error states specifically would be the highest-leverage next step for this line item. |
-| Performance & Code Quality | 10% | **8–9 / 10** | `gts` (Google's own style config) enforced throughout, clean `lint`/`typecheck`, 56 passing automated tests as the sole verification method (no unverified manual claims), and stress-tested concurrency behavior with honestly-reported latency numbers and a documented capacity ceiling rather than a hidden one. |
+| User Experience & Interface | 10% | **8–9 / 10** | Streaming responses + real markdown rendering (not a raw prose dump) address what was previously the weakest part of the experience. Error states were the next weakest spot and are now fixed: every failure (rate-limited, timed out, missing profile, validation error) surfaces its own specific, plain-language message instead of one generic "something went wrong" for everything — including a real silent-failure gap in the dashboard's level selector. An `impeccable`-driven UI polish pass already happened once (Day 4). |
+| Performance & Code Quality | 10% | **8–9 / 10** | `gts` (Google's own style config) enforced throughout, clean `lint`/`typecheck`, 60 passing automated tests as the sole verification method (no unverified manual claims), and stress-tested concurrency behavior with honestly-reported latency numbers and a documented capacity ceiling rather than a hidden one. |
 
-**Total estimate: ~85–95 / 100**, up from the pre-§1a-closure ~79–90 estimate. The remaining
+**Total estimate: ~86–96 / 100**, up from the pre-§1a-closure ~79–90 estimate. The remaining
 width is driven mostly by Innovation (the single most subjective criterion).
 
 ## 5. If there's time before 31 Aug — suggested priority order
 
 1. Record the demo video (script is ready; this is the only deliverable with zero progress —
    consider showing a project and an assessment card, not just a course, since that's now new).
-2. A fresh UX pass on empty/loading/error states specifically (the highest-leverage remaining
-   item for the UX line, per §4).
-3. Regenerate `ai-learning-path-recommender-source.zip` and push any final commits before
+2. Regenerate `ai-learning-path-recommender-source.zip` and push any final commits before
    submitting, so the ZIP/repo/PDF all reflect the same final state.
