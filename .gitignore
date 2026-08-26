@@ -66,3 +66,7 @@ archive_2026-08-25/
 
 # scratch notes, not project content
 /temp.txt
+
+# packaged submission deliverable, generated on demand — not part of the
+# tracked source (it's an export of it)
+/ai-learning-path-recommender-source.zip
