@@ -144,6 +144,24 @@ Mapped to the brief's six required capabilities:
 milestone path with per-course explanations available on demand → marking courses complete
 updates progress and reshapes future recommendations.
 
+**Differentiators added beyond the six required capabilities**:
+
+- **Zero-cloud proof badge** — every AI response (explanation, Q&A, resume blurb) shows elapsed
+  time and "0 external calls" once it finishes, turning the local-only claim into something
+  visible in the product rather than only stated in the docs.
+- **"What if" path preview** — `/api/path?previewLevel=X` re-ranks the same catalog at a
+  different level without saving anything, so a learner can compare roadmaps before committing.
+- **Resume/portfolio blurb** — `/api/resume-blurb` generates a short, RAG-grounded summary of
+  completed work once at least one item is done, using the same delimiter-based grounding as the
+  explainer and Q&A.
+- **Content-type preference** — an explicit dashboard toggle (Balanced/Courses/Projects/
+  Assessments) that nudges ranking via `CONTENT_PREFERENCE_BONUS`, deterministic and learner-set,
+  never LLM-inferred.
+- **Voice input (disclosed)** — an optional mic button using the browser's built-in speech
+  recognition. Unlike every other AI feature here, most browsers send this audio to their own
+  vendor's cloud service to transcribe it, so it's shipped with a persistent, visible disclosure
+  rather than silently breaking the zero-cloud claim.
+
 ## 6. Link to the Assessment Round
 
 The course catalog is seeded from that round's dataset (`train.csv`, 80 course names with

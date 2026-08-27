@@ -1,9 +1,32 @@
 'use client';
 
-import {useState, type FormEvent} from 'react';
+import {useEffect, useRef, useState, type FormEvent} from 'react';
 import Link from 'next/link';
 import MarkdownText from '@/components/MarkdownText';
+import LocalAiBadge from '@/components/LocalAiBadge';
 import {extractErrorMessage} from '@/lib/client-errors';
+
+// Minimal shape for the browser's built-in speech recognition API — not in
+// the default DOM lib types, and deliberately not pulling in a third-party
+// type package for a feature this narrow. See the disclosure rendered next
+// to the mic button: unlike every other AI feature in this app, this one is
+// NOT local — most browsers send the audio to their own vendor's cloud
+// speech service to transcribe it. Shipped anyway, but honestly labeled.
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult:
+    | ((event: {
+        results: {[index: number]: {[index: number]: {transcript: string}}};
+      }) => void)
+    | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+};
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 // SRS FR-1: conversational interface. Talks to /api/chat, which extracts
 // structured intent (lib/intent.ts) and updates the learner profile as a
@@ -20,6 +43,9 @@ import {extractErrorMessage} from '@/lib/client-errors';
 type Message = {
   role: 'user' | 'assistant';
   content: string;
+  /** Only set on assistant messages once their response has fully arrived —
+   * drives the "ran locally" badge (LocalAiBadge). */
+  latencyMs?: number;
 };
 
 type ChatResponse = {
@@ -42,8 +68,33 @@ export default function ChatWindow() {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasGoal, setHasGoal] = useState(false);
+  const [listening, setListening] = useState(false);
+  // Checked client-side only, after mount — avoids a server/client render
+  // mismatch (the server has no `window` to check speech support against),
+  // and doubles as the progressive-enhancement gate: browsers without this
+  // API (e.g. Firefox) simply never show the mic button.
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
-  async function consumeStream(response: Response) {
+  useEffect(() => {
+    // One-time client-side feature detection — `window` doesn't exist during
+    // SSR, so this can't be computed as initial state; it has to run once
+    // after mount, same pattern as the dashboard's fetch-on-mount effect.
+    const hasSpeechRecognition = Boolean(
+      (
+        window as unknown as {
+          SpeechRecognition?: unknown;
+          webkitSpeechRecognition?: unknown;
+        }
+      ).SpeechRecognition ??
+      (window as unknown as {webkitSpeechRecognition?: unknown})
+        .webkitSpeechRecognition,
+    );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSpeechSupported(hasSpeechRecognition);
+  }, []);
+
+  async function consumeStream(response: Response, startedAt: number) {
     setMessages(prev => [...prev, {role: 'assistant', content: ''}]);
     setStreaming(true);
     const reader = response.body?.getReader();
@@ -61,6 +112,50 @@ export default function ChatWindow() {
         return next;
       });
     }
+    setMessages(prev => {
+      const next = [...prev];
+      const last = next[next.length - 1];
+      next[next.length - 1] = {
+        ...last,
+        latencyMs: performance.now() - startedAt,
+      };
+      return next;
+    });
+  }
+
+  function toggleListening() {
+    const SpeechRecognitionCtor: SpeechRecognitionConstructor | undefined =
+      (
+        window as unknown as {
+          SpeechRecognition?: SpeechRecognitionConstructor;
+          webkitSpeechRecognition?: SpeechRecognitionConstructor;
+        }
+      ).SpeechRecognition ??
+      (
+        window as unknown as {
+          webkitSpeechRecognition?: SpeechRecognitionConstructor;
+        }
+      ).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return;
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onresult = event => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => (prev ? `${prev} ${transcript}` : transcript));
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -78,6 +173,7 @@ export default function ChatWindow() {
     setInput('');
     setLoading(true);
     setError(null);
+    const startedAt = performance.now();
 
     try {
       const response = await fetch('/api/chat', {
@@ -100,7 +196,7 @@ export default function ChatWindow() {
       }
 
       if (response.headers.get('content-type')?.includes('text/plain')) {
-        await consumeStream(response);
+        await consumeStream(response, startedAt);
         // The Q&A branch only ever runs once a goal already exists, so
         // hasGoal is already true — the X-Profile header exists for
         // completeness/robustness, not because this path changes it.
@@ -113,7 +209,11 @@ export default function ChatWindow() {
         const data: ChatResponse = await response.json();
         setMessages(prev => [
           ...prev,
-          {role: 'assistant', content: data.reply},
+          {
+            role: 'assistant',
+            content: data.reply,
+            latencyMs: performance.now() - startedAt,
+          },
         ]);
         setHasGoal(Boolean(data.profile.goal));
       }
@@ -147,6 +247,11 @@ export default function ChatWindow() {
               {message.role === 'user' ? 'You: ' : 'Assistant: '}
             </span>
             <MarkdownText text={message.content} />
+            {message.latencyMs !== undefined && (
+              <div className="mt-1">
+                <LocalAiBadge elapsedMs={message.latencyMs} />
+              </div>
+            )}
           </div>
         ))}
         {loading && !streaming && (
@@ -160,26 +265,50 @@ export default function ChatWindow() {
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <label htmlFor="chat-input" className="sr-only">
-          Message
-        </label>
-        <input
-          id="chat-input"
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="e.g. I want to become a backend developer"
-          disabled={loading}
-          className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 dark:focus:ring-offset-zinc-950"
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          Send
-        </button>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-1">
+        <div className="flex gap-2">
+          <label htmlFor="chat-input" className="sr-only">
+            Message
+          </label>
+          <input
+            id="chat-input"
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="e.g. I want to become a backend developer"
+            disabled={loading}
+            className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:ring-zinc-100 dark:focus:ring-offset-zinc-950"
+          />
+          {speechSupported && (
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={loading}
+              aria-label={listening ? 'Stop voice input' : 'Start voice input'}
+              aria-pressed={listening}
+              className={`shrink-0 rounded-lg border px-3 py-2 text-sm disabled:opacity-50 ${
+                listening
+                  ? 'border-red-400 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300'
+                  : 'border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400'
+              }`}
+            >
+              {listening ? '● Listening…' : '🎤'}
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            Send
+          </button>
+        </div>
+        {speechSupported && (
+          <p className="text-[11px] text-zinc-400">
+            Voice input uses your browser&apos;s built-in speech service (not
+            this app&apos;s local AI).
+          </p>
+        )}
       </form>
 
       {hasGoal && (

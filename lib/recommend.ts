@@ -1,5 +1,5 @@
 import {cosineSimilarity} from './embeddings';
-import {LEVEL_RANK, type CourseLike, type Level} from './types';
+import {LEVEL_RANK, type CourseLike, type ItemType, type Level} from './types';
 
 export type RankedCourse<T extends CourseLike> = {
   course: T;
@@ -12,6 +12,11 @@ export type RankedCourse<T extends CourseLike> = {
 const LEVEL_MISMATCH_PENALTY = 0.15;
 const MIN_LEVEL_RANK = 0;
 const MAX_LEVEL_RANK = 2;
+/** Smaller than LEVEL_MISMATCH_PENALTY on purpose — a content-type
+ * preference should nudge ranking, not dominate actual relevance. Only
+ * applied when the learner has explicitly set a preference (never
+ * inferred), so its effect on ranking stays predictable and testable. */
+const CONTENT_PREFERENCE_BONUS = 0.05;
 
 export type FeedbackCounts = {tooEasy: number; tooHard: number};
 
@@ -42,7 +47,12 @@ export function computeLevelAdjustment(feedback: FeedbackCounts): number {
  * which also carries display fields) get it back on `course` without a cast.
  */
 export function rankCourses<T extends CourseLike>(
-  learner: {goalEmbedding: number[]; level: Level; levelAdjustment?: number},
+  learner: {
+    goalEmbedding: number[];
+    level: Level;
+    levelAdjustment?: number;
+    contentPreference?: ItemType | null;
+  },
   courses: T[],
   completedCourseIds: ReadonlySet<string>,
 ): RankedCourse<T>[] {
@@ -63,7 +73,12 @@ export function rankCourses<T extends CourseLike>(
       );
       const levelDelta = Math.abs(LEVEL_RANK[course.level] - learnerRank);
       const levelMismatch = levelDelta > 0;
-      const score = similarity - levelDelta * LEVEL_MISMATCH_PENALTY;
+      const preferenceBonus =
+        learner.contentPreference && course.type === learner.contentPreference
+          ? CONTENT_PREFERENCE_BONUS
+          : 0;
+      const score =
+        similarity - levelDelta * LEVEL_MISMATCH_PENALTY + preferenceBonus;
       return {course, similarity, score, levelMismatch};
     })
     .sort((a, b) => b.score - a.score);

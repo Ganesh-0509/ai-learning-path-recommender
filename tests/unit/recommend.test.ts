@@ -7,8 +7,9 @@ function course(
   id: string,
   embedding: number[],
   level: CourseLike['level'] = 'BEGINNER',
+  type: CourseLike['type'] = 'COURSE',
 ): CourseLike {
-  return {id, title: id, level, prerequisites: [], embedding};
+  return {id, title: id, level, prerequisites: [], embedding, type};
 }
 
 test('rankCourses sorts by similarity to the goal embedding, closest first', () => {
@@ -71,6 +72,36 @@ test('rankCourses clamps levelAdjustment to a valid rank', () => {
     new Set(),
   );
   assert.equal(ranked[0].levelMismatch, true);
+});
+
+test('rankCourses applies a contentPreference bonus without excluding other types', () => {
+  const courses = [
+    course('a-course', [1, 0], 'BEGINNER', 'COURSE'),
+    course('a-project', [1, 0], 'BEGINNER', 'PROJECT'),
+  ];
+  // Identical similarity and level — the project should outrank the course
+  // once the learner prefers projects, but the course must still appear.
+  const preferred = rankCourses(
+    {goalEmbedding: [1, 0], level: 'BEGINNER', contentPreference: 'PROJECT'},
+    courses,
+    new Set(),
+  );
+  assert.equal(preferred[0].course.id, 'a-project');
+  assert.equal(preferred.length, 2);
+  assert.ok(preferred[0].score > preferred[1].score);
+});
+
+test('rankCourses ignores contentPreference when not set (balanced, no bias)', () => {
+  const courses = [
+    course('a-course', [1, 0], 'BEGINNER', 'COURSE'),
+    course('a-project', [1, 0], 'BEGINNER', 'PROJECT'),
+  ];
+  const balanced = rankCourses(
+    {goalEmbedding: [1, 0], level: 'BEGINNER'},
+    courses,
+    new Set(),
+  );
+  assert.equal(balanced[0].score, balanced[1].score);
 });
 
 test('computeLevelAdjustment: more TOO_HARD than TOO_EASY nudges down a tier', () => {

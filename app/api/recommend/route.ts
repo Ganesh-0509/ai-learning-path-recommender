@@ -9,7 +9,7 @@ import {
 } from '@/lib/courses';
 import {getLearnerIdFromRequest} from '@/lib/session';
 import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
-import type {Level} from '@/lib/types';
+import type {ItemType, Level} from '@/lib/types';
 
 // SRS FR-3: recommendation engine. Ranks the catalog by similarity to the
 // learner's stated goal/interests, filtered by completed courses, re-weighted
@@ -75,7 +75,12 @@ export async function GET(request: NextRequest) {
   );
 
   const ranked = rankCourses(
-    {goalEmbedding, level: learner.level as Level, levelAdjustment},
+    {
+      goalEmbedding,
+      level: learner.level as Level,
+      levelAdjustment,
+      contentPreference: learner.contentPreference as ItemType | null,
+    },
     [...courseById.values()],
     completed,
   );

@@ -22,11 +22,15 @@ export function nounForItemType(
 
 /** The subset of a Course row the pure logic in lib/recommend.ts and
  * lib/prereq-graph.ts needs — kept independent of Prisma's generated types so
- * these modules stay unit-testable without a database. */
+ * these modules stay unit-testable without a database. `type` is optional
+ * here (unlike on CourseRecord) so existing CourseLike fixtures/tests that
+ * predate content-type preference don't need updating — lib/recommend.ts
+ * treats a missing type as "no type to match a preference against". */
 export type CourseLike = {
   id: string;
   title: string;
   level: Level;
   prerequisites: string[];
   embedding: number[];
+  type?: ItemType;
 };

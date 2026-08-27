@@ -3,7 +3,14 @@
 import {useCallback, useEffect, useState} from 'react';
 import Link from 'next/link';
 import MarkdownText from '@/components/MarkdownText';
-import {LEVELS, nounForItemType, type ItemType, type Level} from '@/lib/types';
+import LocalAiBadge from '@/components/LocalAiBadge';
+import {
+  ITEM_TYPES,
+  LEVELS,
+  nounForItemType,
+  type ItemType,
+  type Level,
+} from '@/lib/types';
 import {extractErrorMessage} from '@/lib/client-errors';
 
 // SRS FR-6: dashboard — progress, skills, milestones, next recommended
@@ -31,12 +38,20 @@ type Profile = {
   goal: string;
   level: string;
   interests: string[];
+  contentPreference: ItemType | null;
 };
 
 const LEVEL_LABELS: Record<Level, string> = {
   BEGINNER: 'Beginner',
   INTERMEDIATE: 'Intermediate',
   ADVANCED: 'Advanced',
+};
+
+const PREFERENCE_LABELS: Record<'BALANCED' | ItemType, string> = {
+  BALANCED: 'Balanced',
+  COURSE: 'Courses',
+  PROJECT: 'Projects',
+  ASSESSMENT: 'Assessments',
 };
 
 const ITEM_TYPE_LABELS: Record<ItemType, string> = {
@@ -66,7 +81,28 @@ export default function DashboardView() {
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
   const [explanations, setExplanations] = useState<Record<string, string>>({});
   const [explaining, setExplaining] = useState<string | null>(null);
+  const [explainLatencyMs, setExplainLatencyMs] = useState<
+    Record<string, number>
+  >({});
   const [savingLevel, setSavingLevel] = useState(false);
+  const [savingPreference, setSavingPreference] = useState(false);
+
+  // "What if" path preview (Feature 2) — kept entirely separate from the
+  // real, saved `milestones` state so previewing never risks overwriting it.
+  const [previewLevel, setPreviewLevel] = useState<Level | ''>('');
+  const [previewMilestones, setPreviewMilestones] = useState<
+    Milestone[] | null
+  >(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  // Resume/portfolio blurb (Feature 3).
+  const [resumeBlurb, setResumeBlurb] = useState('');
+  const [resumeBlurbLoading, setResumeBlurbLoading] = useState(false);
+  const [resumeBlurbError, setResumeBlurbError] = useState<string | null>(null);
+  const [resumeBlurbLatencyMs, setResumeBlurbLatencyMs] = useState<
+    number | null
+  >(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -154,6 +190,7 @@ export default function DashboardView() {
   async function explainCourse(courseId: string) {
     setExplaining(courseId);
     setActionErrors(prev => ({...prev, [courseId]: ''}));
+    const startedAt = performance.now();
     try {
       const response = await fetch('/api/explain', {
         method: 'POST',
@@ -185,6 +222,10 @@ export default function DashboardView() {
           [courseId]: (prev[courseId] ?? '') + chunk,
         }));
       }
+      setExplainLatencyMs(prev => ({
+        ...prev,
+        [courseId]: performance.now() - startedAt,
+      }));
     } catch {
       setActionErrors(prev => ({
         ...prev,
@@ -221,6 +262,103 @@ export default function DashboardView() {
       );
     } finally {
       setSavingLevel(false);
+    }
+  }
+
+  async function updatePreference(preference: ItemType | null) {
+    setSavingPreference(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({contentPreference: preference}),
+      });
+      if (!response.ok) {
+        setError(
+          await extractErrorMessage(
+            response,
+            "Couldn't save your preference. Please try again.",
+          ),
+        );
+        return;
+      }
+      await load();
+    } catch {
+      setError(
+        "Couldn't reach the server. Check your connection and try again.",
+      );
+    } finally {
+      setSavingPreference(false);
+    }
+  }
+
+  async function previewAtLevel(level: Level | '') {
+    setPreviewLevel(level);
+    setPreviewError(null);
+    if (!level) {
+      setPreviewMilestones(null);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const response = await fetch(
+        `/api/path?previewLevel=${encodeURIComponent(level)}`,
+      );
+      if (!response.ok) {
+        setPreviewError(
+          await extractErrorMessage(
+            response,
+            "Couldn't load a preview. Please try again.",
+          ),
+        );
+        return;
+      }
+      const data = await response.json();
+      setPreviewMilestones(data.milestones);
+    } catch {
+      setPreviewError(
+        "Couldn't reach the server. Check your connection and try again.",
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function generateResumeBlurb() {
+    setResumeBlurbLoading(true);
+    setResumeBlurbError(null);
+    setResumeBlurb('');
+    const startedAt = performance.now();
+    try {
+      const response = await fetch('/api/resume-blurb', {method: 'POST'});
+      if (!response.ok) {
+        setResumeBlurbError(
+          await extractErrorMessage(
+            response,
+            "Couldn't generate a summary — try again.",
+          ),
+        );
+        return;
+      }
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+      const decoder = new TextDecoder();
+      while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, {stream: true});
+        setResumeBlurb(prev => prev + chunk);
+      }
+      setResumeBlurbLatencyMs(performance.now() - startedAt);
+    } catch {
+      setResumeBlurbError(
+        "Couldn't reach the server. Check your connection and try again.",
+      );
+    } finally {
+      setResumeBlurbLoading(false);
     }
   }
 
@@ -308,6 +446,100 @@ export default function DashboardView() {
           {completedCount} / {allCourses.length} items complete (
           {progressPercent}%)
         </p>
+
+        <div className="mt-3 flex flex-col gap-1">
+          <span className="text-xs font-medium text-zinc-500">
+            Recommend more
+          </span>
+          <div
+            role="group"
+            aria-label="Content type preference"
+            className="flex flex-wrap gap-1"
+          >
+            {(['BALANCED', ...ITEM_TYPES] as const).map(option => {
+              const value = option === 'BALANCED' ? null : option;
+              const active = (profile.contentPreference ?? null) === value;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  disabled={savingPreference}
+                  onClick={() => updatePreference(value)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium disabled:opacity-50 ${
+                    active
+                      ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900'
+                      : 'border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400'
+                  }`}
+                >
+                  {PREFERENCE_LABELS[option]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-medium text-zinc-500">
+            Preview at a different level
+          </span>
+          <select
+            value={previewLevel}
+            onChange={e => previewAtLevel(e.target.value as Level | '')}
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            <option value="">— choose a level to preview —</option>
+            {LEVELS.map(level => (
+              <option key={level} value={level}>
+                {LEVEL_LABELS[level]}
+              </option>
+            ))}
+          </select>
+          {previewLevel && (
+            <button
+              type="button"
+              onClick={() => previewAtLevel('')}
+              className="text-xs font-medium underline underline-offset-4"
+            >
+              Clear preview
+            </button>
+          )}
+        </label>
+
+        {previewLoading && (
+          <p className="mt-2 text-xs text-zinc-500">Loading preview…</p>
+        )}
+        {previewError && (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+            {previewError}
+          </p>
+        )}
+        {previewMilestones && !previewLoading && (
+          <div className="mt-3 rounded-lg border border-dashed border-zinc-300 p-3 dark:border-zinc-700">
+            <p className="mb-2 text-xs font-medium text-zinc-500">
+              Preview only — your saved path is unchanged.
+            </p>
+            {previewMilestones.length === 0 ? (
+              <p className="text-xs text-zinc-500">
+                Nothing would match at this level.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {previewMilestones.map(m => (
+                  <li key={m.title} className="text-xs">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                      {m.title}:
+                    </span>{' '}
+                    <span className="text-zinc-500">
+                      {m.courses.map(c => c.title).join(', ')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </section>
 
       {nextAction && (
@@ -321,6 +553,43 @@ export default function DashboardView() {
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {nextAction.description}
           </p>
+        </section>
+      )}
+
+      {completedCount > 0 && (
+        <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium text-zinc-500">
+              Resume/portfolio summary
+            </h2>
+            <button
+              type="button"
+              onClick={generateResumeBlurb}
+              disabled={resumeBlurbLoading}
+              className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50 dark:border-zinc-700"
+            >
+              {resumeBlurbLoading
+                ? 'Generating…'
+                : resumeBlurb
+                  ? 'Regenerate'
+                  : 'Generate summary'}
+            </button>
+          </div>
+          {resumeBlurbError && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+              {resumeBlurbError}
+            </p>
+          )}
+          {resumeBlurb && (
+            <div className="mt-2 flex flex-col gap-2">
+              <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                <MarkdownText text={resumeBlurb} />
+              </div>
+              {resumeBlurbLatencyMs !== null && (
+                <LocalAiBadge elapsedMs={resumeBlurbLatencyMs} />
+              )}
+            </div>
+          )}
         </section>
       )}
 
@@ -395,8 +664,13 @@ export default function DashboardView() {
                   </div>
 
                   {explanations[course.id] ? (
-                    <div className="text-xs italic text-zinc-600 dark:text-zinc-400">
-                      <MarkdownText text={explanations[course.id]} />
+                    <div className="flex flex-col gap-1">
+                      <div className="text-xs italic text-zinc-600 dark:text-zinc-400">
+                        <MarkdownText text={explanations[course.id]} />
+                      </div>
+                      {explainLatencyMs[course.id] !== undefined && (
+                        <LocalAiBadge elapsedMs={explainLatencyMs[course.id]} />
+                      )}
                     </div>
                   ) : (
                     <button

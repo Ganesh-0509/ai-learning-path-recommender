@@ -13,7 +13,7 @@ import {
 import {getLearnerIdFromRequest, setLearnerIdCookie} from '@/lib/session';
 import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
 import {textStreamFromGenerator} from '@/lib/stream-utils';
-import type {Level} from '@/lib/types';
+import type {ItemType, Level} from '@/lib/types';
 
 // SRS FR-1: conversational intake. Extracts structured intent from the
 // message via lib/intent.ts, then updates (or creates) the learner profile
@@ -88,7 +88,12 @@ export async function POST(request: NextRequest) {
       await getFeedbackCounts(existing.id),
     );
     const ranked = rankCourses(
-      {goalEmbedding, level: existing.level as Level, levelAdjustment},
+      {
+        goalEmbedding,
+        level: existing.level as Level,
+        levelAdjustment,
+        contentPreference: existing.contentPreference as ItemType | null,
+      },
       [...courseById.values()],
       completed,
     );

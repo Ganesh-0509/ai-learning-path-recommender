@@ -82,6 +82,14 @@ and "UX" in particular are subjective. Treat the ranges as informed estimates, n
 **Total estimate: ~86–96 / 100**, up from the pre-§1a-closure ~79–90 estimate. The remaining
 width is driven mostly by Innovation (the single most subjective criterion).
 
+**Since this estimate**, five differentiator features were added to push the Innovation and UX
+lines toward the top of their ranges: a zero-cloud proof badge (elapsed time + "0 external calls"
+on every AI response), a "what if" path preview at a different level (non-destructive, reuses the
+real ranking logic), an auto-generated resume/portfolio blurb grounded in completed work, an
+explicit content-type preference toggle, and a disclosed voice-input option. All five are covered
+by automated tests and hold to the same security posture (Zod validation, rate limiting,
+delimiter-based prompt-injection defense) as the rest of the app.
+
 ## 5. If there's time before 31 Aug — suggested priority order
 
 1. Record the demo video (script is ready; this is the only deliverable with zero progress —

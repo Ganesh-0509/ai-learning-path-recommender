@@ -76,8 +76,8 @@ path. Reference: `docs/TRD.md` for architecture, `docs/PRD.md` for product inten
 - Course catalog: id, title, type (course/project/assessment), description/topics, level, skills
   taught, prerequisite ids, embedding vector — seeded from Round 1's `train.csv` (80 courses) plus
   a local-LLM metadata pass, extended with 26 generated project/assessment items.
-- Learner profile: id, interests, level, completed course ids, goal statement, created/updated
-  timestamps.
+- Learner profile: id, interests, level, completed course ids, goal statement, optional
+  content-type preference (course/project/assessment/none), created/updated timestamps.
 - Progress record: learner id, course id, status (not-started/in-progress/complete), feedback
   signal, timestamp.
 

@@ -1,4 +1,5 @@
 import {NextResponse, type NextRequest} from 'next/server';
+import {z} from 'zod';
 import {db} from '@/lib/db';
 import {embed} from '@/lib/embeddings';
 import {rankCourses, computeLevelAdjustment} from '@/lib/recommend';
@@ -10,13 +11,14 @@ import {
 } from '@/lib/courses';
 import {getLearnerIdFromRequest} from '@/lib/session';
 import {checkRateLimit, getRateLimitKey} from '@/lib/rate-limit';
-import type {Level} from '@/lib/types';
+import {LEVELS, type ItemType, type Level} from '@/lib/types';
 
 // SRS FR-4: learning path generator. Takes the top-ranked recommendations,
 // expands them with prerequisites, and groups the result into milestones —
 // docs/TRD.md §4.2.
 
 const PATH_SEED_COUNT = 5;
+const previewLevelSchema = z.enum(LEVELS).optional();
 
 export async function GET(request: NextRequest) {
   const learnerId = getLearnerIdFromRequest(request);
@@ -39,6 +41,19 @@ export async function GET(request: NextRequest) {
   if (!learner) {
     return NextResponse.json({error: 'No profile yet.'}, {status: 404});
   }
+
+  // "What if" preview: lets a learner see how the path would look at a
+  // different level without saving anything — never writes to the DB, and
+  // only ever affects this one request/response, using the learner's own
+  // real goal/interests/completed-items. Invalid values are ignored rather
+  // than rejected outright, since a malformed query param here should just
+  // fall back to the learner's real level, not break the whole page.
+  const previewLevelParsed = previewLevelSchema.safeParse(
+    request.nextUrl.searchParams.get('previewLevel') ?? undefined,
+  );
+  const previewLevel = previewLevelParsed.success
+    ? previewLevelParsed.data
+    : undefined;
 
   const interests = JSON.parse(learner.interests) as string[];
   if (!learner.goal && interests.length === 0) {
@@ -66,19 +81,25 @@ export async function GET(request: NextRequest) {
   );
 
   const ranked = rankCourses(
-    {goalEmbedding, level: learner.level as Level, levelAdjustment},
+    {
+      goalEmbedding,
+      level: (previewLevel ?? learner.level) as Level,
+      levelAdjustment: previewLevel ? 0 : levelAdjustment,
+      contentPreference: learner.contentPreference as ItemType | null,
+    },
     [...courseById.values()],
     completed,
   );
   const seedIds = ranked.slice(0, PATH_SEED_COUNT).map(r => r.course.id);
 
   if (seedIds.length === 0) {
-    return NextResponse.json({milestones: []});
+    return NextResponse.json({milestones: [], preview: Boolean(previewLevel)});
   }
 
   const milestones = buildPath(seedIds, courseById);
 
   return NextResponse.json({
+    preview: Boolean(previewLevel),
     milestones: milestones.map(m => ({
       title: m.title,
       courses: m.courseIds.map(id => {

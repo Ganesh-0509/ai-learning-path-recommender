@@ -2,7 +2,7 @@ import {NextResponse, type NextRequest} from 'next/server';
 import {z} from 'zod';
 import {db} from '@/lib/db';
 import {getLearnerIdFromRequest, setLearnerIdCookie} from '@/lib/session';
-import {LEVELS} from '@/lib/types';
+import {ITEM_TYPES, LEVELS} from '@/lib/types';
 
 // SRS FR-2.1/FR-2.2: learner profile capture (interests, level, goal), via
 // chat or a structured form — this route is the structured-form + read path;
@@ -12,6 +12,10 @@ const profileInputSchema = z.object({
   interests: z.array(z.string().min(1).max(80)).max(20).optional(),
   level: z.enum(LEVELS).optional(),
   goal: z.string().max(500).optional(),
+  // null = explicitly clear back to "balanced, no preference"; undefined =
+  // field omitted, leave whatever's already stored unchanged. Never
+  // inferred from anything the learner types — set only by this route.
+  contentPreference: z.enum(ITEM_TYPES).nullable().optional(),
 });
 
 type LearnerRow = {
@@ -19,6 +23,7 @@ type LearnerRow = {
   interests: string;
   level: string;
   goal: string;
+  contentPreference: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -29,6 +34,7 @@ function serializeLearner(learner: LearnerRow) {
     interests: JSON.parse(learner.interests) as string[],
     level: learner.level,
     goal: learner.goal,
+    contentPreference: learner.contentPreference,
     createdAt: learner.createdAt,
     updatedAt: learner.updatedAt,
   };
@@ -71,7 +77,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const {interests, level, goal} = parsed.data;
+  const {interests, level, goal, contentPreference} = parsed.data;
   const existingId = getLearnerIdFromRequest(request);
   const existing = existingId
     ? await db.learner.findUnique({where: {id: existingId}})
@@ -86,6 +92,7 @@ export async function POST(request: NextRequest) {
           }),
           ...(level !== undefined && {level}),
           ...(goal !== undefined && {goal}),
+          ...(contentPreference !== undefined && {contentPreference}),
         },
       })
     : await db.learner.create({
@@ -93,6 +100,7 @@ export async function POST(request: NextRequest) {
           interests: JSON.stringify(interests ?? []),
           level: level ?? 'BEGINNER',
           goal: goal ?? '',
+          contentPreference: contentPreference ?? null,
         },
       });
 

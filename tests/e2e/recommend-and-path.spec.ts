@@ -143,3 +143,101 @@ test.describe('feedback adapts future recommendations (FR-4.4/FR-6.5)', () => {
     );
   });
 });
+
+test.describe('"what if" path preview', () => {
+  test('previewLevel changes the response without touching the saved profile', async ({
+    request,
+  }) => {
+    await request.post('/api/profile', {
+      data: {goal: 'I want to master Python programming', level: 'BEGINNER'},
+    });
+
+    const real = await (await request.get('/api/path')).json();
+    expect(real.preview).toBe(false);
+
+    const preview = await (
+      await request.get('/api/path?previewLevel=ADVANCED')
+    ).json();
+    expect(preview.preview).toBe(true);
+
+    // The learner's own saved level must be unchanged by a preview request —
+    // this never writes to the DB.
+    const profile = await (await request.get('/api/profile')).json();
+    expect(profile.level).toBe('BEGINNER');
+  });
+
+  test('an invalid previewLevel falls back to the real level rather than erroring', async ({
+    request,
+  }) => {
+    await request.post('/api/profile', {
+      data: {goal: 'Learn web development', level: 'BEGINNER'},
+    });
+    const response = await request.get('/api/path?previewLevel=NOT_A_LEVEL');
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.preview).toBe(false);
+  });
+});
+
+test.describe('content-type preference', () => {
+  test('setting a preference is reflected on the profile and biases ranking', async ({
+    request,
+  }) => {
+    await request.post('/api/profile', {
+      data: {
+        goal: 'I want to learn blockchain development',
+        level: 'BEGINNER',
+      },
+    });
+
+    // Balanced (no preference) baseline first — the level-mismatch penalty
+    // also affects score, so isolating the preference bonus means comparing
+    // the SAME item's score with and without the preference, not comparing
+    // score to similarity directly (which would conflate the two effects).
+    const balanced = await (
+      await request.get('/api/recommend?limit=30')
+    ).json();
+    const balancedProject = balanced.recommendations.find(
+      (r: {type: string}) => r.type === 'PROJECT',
+    );
+    expect(balancedProject).toBeTruthy();
+
+    const setResponse = await request.post('/api/profile', {
+      data: {contentPreference: 'PROJECT'},
+    });
+    expect(setResponse.status()).toBe(200);
+    const profile = await setResponse.json();
+    expect(profile.contentPreference).toBe('PROJECT');
+
+    const preferred = await (
+      await request.get('/api/recommend?limit=30')
+    ).json();
+    const preferredProject = preferred.recommendations.find(
+      (r: {id: string}) => r.id === balancedProject.id,
+    );
+    const course = preferred.recommendations.find(
+      (r: {type: string}) => r.type === 'COURSE',
+    );
+    expect(preferredProject).toBeTruthy();
+    expect(course).toBeTruthy();
+    // The same project's score under a PROJECT preference must be exactly
+    // the CONTENT_PREFERENCE_BONUS higher than its balanced score — proves
+    // the bonus is applied, without conflating it with the (also real)
+    // level-mismatch penalty.
+    expect(preferredProject.score).toBeCloseTo(balancedProject.score + 0.05, 5);
+  });
+
+  test('clearing a preference (null) goes back to balanced', async ({
+    request,
+  }) => {
+    await request.post('/api/profile', {
+      data: {goal: 'Learn something', contentPreference: 'ASSESSMENT'},
+    });
+    const cleared = await request.post('/api/profile', {
+      data: {contentPreference: null},
+    });
+    expect(cleared.status()).toBe(200);
+    const profile = await cleared.json();
+    expect(profile.contentPreference).toBeNull();
+  });
+});
