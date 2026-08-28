@@ -92,32 +92,54 @@ export async function GET(request: NextRequest) {
   );
   const seedIds = ranked.slice(0, PATH_SEED_COUNT).map(r => r.course.id);
 
-  if (seedIds.length === 0) {
-    return NextResponse.json({milestones: [], preview: Boolean(previewLevel)});
-  }
+  const milestones =
+    seedIds.length > 0
+      ? buildPath(seedIds, courseById).map(m => ({
+          title: m.title,
+          courseIds: m.courseIds,
+        }))
+      : [];
 
-  const milestones = buildPath(seedIds, courseById);
+  const toCourseView = (id: string) => {
+    const course = courseById.get(id);
+    if (!course) {
+      throw new Error(`toCourseView: unknown course id "${id}"`);
+    }
+    return {
+      id: course.id,
+      title: course.title,
+      type: course.type,
+      category: course.category,
+      description: course.description,
+      skillsTaught: course.skillsTaught,
+      level: course.level,
+      completed: completed.has(course.id),
+    };
+  };
+
+  // rankCourses (deliberately) filters completed courses out of future
+  // recommendations, and buildPath only pulls one back in as someone else's
+  // prerequisite. Left alone, a completed course that nothing else depends
+  // on would simply vanish from the dashboard — the learner's own progress
+  // history, and anything gated on `completed`/`completedCount` client-side
+  // (the resume/portfolio summary), would look like it never happened. A
+  // preview is hypothetical exploration of a different level, not a history
+  // view, so it deliberately excludes this bucket.
+  if (!previewLevel && completed.size > 0) {
+    const shownIds = new Set(milestones.flatMap(m => m.courseIds));
+    const leftoverCompletedIds = [...completed].filter(
+      id => !shownIds.has(id) && courseById.has(id),
+    );
+    if (leftoverCompletedIds.length > 0) {
+      milestones.push({title: 'Completed', courseIds: leftoverCompletedIds});
+    }
+  }
 
   return NextResponse.json({
     preview: Boolean(previewLevel),
     milestones: milestones.map(m => ({
       title: m.title,
-      courses: m.courseIds.map(id => {
-        const course = courseById.get(id);
-        if (!course) {
-          throw new Error(`buildPath returned unknown course id "${id}"`);
-        }
-        return {
-          id: course.id,
-          title: course.title,
-          type: course.type,
-          category: course.category,
-          description: course.description,
-          skillsTaught: course.skillsTaught,
-          level: course.level,
-          completed: completed.has(course.id),
-        };
-      }),
+      courses: m.courseIds.map(toCourseView),
     })),
   });
 }

@@ -39,7 +39,11 @@ export async function getCompletedCourseIds(
   const rows = await db.progress.findMany({
     where: {learnerId, status: 'COMPLETE'},
     select: {courseId: true},
+    orderBy: {updatedAt: 'asc'},
   });
+  // Set preserves insertion order, so callers that need a stable
+  // (completion-order) listing — e.g. the "Completed" milestone in
+  // app/api/path/route.ts — can iterate this directly.
   return new Set(rows.map(r => r.courseId));
 }
 

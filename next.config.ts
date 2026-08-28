@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
   // not project content, just noise for a repo that already documents
   // itself (README.md, docs/).
   agentRules: false,
+  // Lets the dev server serve _next/* assets and HMR when accessed through
+  // a cloudflared quick tunnel, whose hostname differs from localhost.
+  allowedDevOrigins: ['*.trycloudflare.com'],
   async headers() {
     return [{source: '/:path*', headers: SECURITY_HEADERS}];
   },

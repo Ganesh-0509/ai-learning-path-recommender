@@ -86,6 +86,38 @@ test.describe('recommend -> path -> progress flow', () => {
     expect(ids).not.toContain(targetId);
   });
 
+  test('a completed course that nothing else depends on still appears in the path, marked complete', async ({
+    request,
+  }) => {
+    // Regression test: rankCourses excludes completed courses from future
+    // recommendations, and buildPath only pulls one back in as a
+    // prerequisite of something still needed. Left unhandled, completing a
+    // course with no dependents made it vanish from /api/path entirely —
+    // silently zeroing the dashboard's progress count and hiding the
+    // resume/portfolio summary even though the completion was saved.
+    await request.post('/api/profile', {
+      data: {goal: 'Learn web development', level: 'BEGINNER'},
+    });
+
+    // A root course (no prerequisites) unrelated to the stated goal, so it
+    // won't be re-recommended and won't be any other course's dependency.
+    const targetId = 'machine-learning-fundamentals';
+    const progressResponse = await request.post('/api/progress', {
+      data: {courseId: targetId, status: 'COMPLETE'},
+    });
+    expect(progressResponse.status()).toBe(200);
+
+    const response = await request.get('/api/path');
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    const allCourses = body.milestones.flatMap(
+      (m: {courses: {id: string; completed: boolean}[]}) => m.courses,
+    );
+    const shown = allCourses.find((c: {id: string}) => c.id === targetId);
+    expect(shown, 'completed course should still appear in the path').toBeTruthy();
+    expect(shown.completed).toBe(true);
+  });
+
   test('POST /api/progress with an unknown course id returns 404', async ({
     request,
   }) => {
