@@ -10,7 +10,9 @@ live public link (see `docs/DEPLOYMENT.md`).
 
 - Reset to a clean state: either a fresh browser profile (no `learner_id` cookie) or an incognito
   window, so the chat starts from the true first-run empty state.
-- Have Ollama running (`ollama serve`) if recording against a local instance.
+- Have Ollama running (`ollama serve`) if recording against a local instance, and send one warm-up
+  message first (`ollama run llama3.2:3b "hi"`) — an idle model reloads from disk on the next
+  request (measured 60–75s), which can make the very first live chat message look stalled.
 - Close other tabs/notifications; 1280×800 browser window reads cleanly on screen.
 
 ## Script

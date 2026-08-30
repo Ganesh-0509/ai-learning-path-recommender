@@ -117,6 +117,12 @@ more useful:
   ollama pull llama3.2:3b
   ollama serve
   ```
+  Ollama unloads an idle model from memory and reloads it from disk on the next request — measured
+  at 60–75s on this project's dev machine, which can exceed the app's own request timeout on the
+  very first chat message. Run one warm-up request before a demo so the model is already resident:
+  ```bash
+  ollama run llama3.2:3b "hi"
+  ```
 - No accounts, API keys, or external services required — everything runs on your machine.
 
 ### Setup
