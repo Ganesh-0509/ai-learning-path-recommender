@@ -114,7 +114,10 @@ test.describe('recommend -> path -> progress flow', () => {
       (m: {courses: {id: string; completed: boolean}[]}) => m.courses,
     );
     const shown = allCourses.find((c: {id: string}) => c.id === targetId);
-    expect(shown, 'completed course should still appear in the path').toBeTruthy();
+    expect(
+      shown,
+      'completed course should still appear in the path',
+    ).toBeTruthy();
     expect(shown.completed).toBe(true);
   });
 

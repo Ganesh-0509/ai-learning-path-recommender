@@ -175,7 +175,7 @@ system.
 | # | Objective | Target | Measured |
 |---|---|---|---|
 | NF1 | No request ever leaves the deployed infrastructure to a third-party AI API | Zero external AI calls | Verified by code inspection — `lib/llm.ts`/`lib/embeddings.ts` only ever call `localhost:11434` / an in-process model |
-| NF2 | Every capability backed by an automated test, not a manual claim | 100% of stated capabilities test-covered | 60/60 tests passing (21 unit, 36 e2e, 3 stress) at time of writing |
+| NF2 | Every capability backed by an automated test, not a manual claim | 100% of stated capabilities test-covered | 70/70 tests passing (23 unit, 44 e2e, 3 stress) at time of writing |
 | NF3 | Input validation on every mutating/queryable route | No malformed input ever reaches business logic | Zod schema validation on every route; verified by `tests/e2e/input-validation.spec.ts` |
 | NF4 | No unhandled server exception on LLM failure | Every LLM-call failure path returns a well-formed response | 503 JSON on intent-extraction timeout; graceful in-band fallback text on streaming failure |
 | NF5 | Zero-budget hosting | No paid tier of any kind | Local execution + free, no-account Cloudflare Tunnel |
@@ -2985,8 +2985,8 @@ instance local inference stops keeping up.
 This system is a single-process Next.js web application implementing an AI-powered personalized
 learning path recommender entirely on self-hosted models (`llama3.2:3b` via Ollama,
 `all-MiniLM-L6-v2` via `@huggingface/transformers`), backed by a SQLite database (via Prisma) and
-verified exclusively through an automated Playwright test suite (21 unit, 36 end-to-end, 3 stress
-specs, 60 total, all passing). It converts a learner's natural-language goal into a structured
+verified exclusively through an automated Playwright test suite (23 unit, 44 end-to-end, 3 stress
+specs, 70 total, all passing). It converts a learner's natural-language goal into a structured
 profile (via LLM-based intent extraction with an explicit clarification-vs-commit decision rule),
 ranks a 106-item catalog (courses, projects, and assessments, structurally unified under one
 `type`-discriminated data model) by cosine similarity between goal and item embeddings with an
