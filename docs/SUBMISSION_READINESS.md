@@ -56,7 +56,7 @@ the same day and has since been closed:
 
 ## 3. Verification
 
-70/70 automated tests pass (23 unit + 44 e2e + 3 stress), plus clean `lint` and `typecheck`, via
+71/71 automated tests pass (24 unit + 44 e2e + 3 stress), plus clean `lint` and `typecheck`, via
 the project's own `npm test` / `npm run lint` / `npm run typecheck`. The stress-testing pass
 earlier the same session surfaced and fixed two real reliability gaps — an LLM timeout crashing
 the chat route, and a mid-stream failure silently killing the connection — both now degrade
@@ -77,7 +77,7 @@ and "UX" in particular are subjective. Treat the ranges as informed estimates, n
 | AI/ML Implementation | 20% | **17–19 / 20** | Real embedding-based ranking (not keyword match), RAG-grounded explanations with a demonstrated-and-fixed prompt-injection defense, structured-output validation with retry, and a hybrid deterministic+LLM catalog pipeline that used the LLM only where it added value. Entirely self-hosted, which is harder to pull off well than calling a frontier API and is demonstrated working under real (if serialized) concurrent load. |
 | Innovation & Creativity | 15% | **10–13 / 15** | The zero-vendor-API constraint, structural prompt-injection defense (delimiters + server-pinned course identity, not just prompt wording), and the honest stress-test-driven graceful-degradation work are genuine differentiators most entrants likely won't have. Less "wow-factor" than a flashier but shallower feature set would produce — this is the most subjective line item and the widest range. |
 | User Experience & Interface | 10% | **8–9 / 10** | Streaming responses + real markdown rendering (not a raw prose dump) address what was previously the weakest part of the experience. Error states were the next weakest spot and are now fixed: every failure (rate-limited, timed out, missing profile, validation error) surfaces its own specific, plain-language message instead of one generic "something went wrong" for everything — including a real silent-failure gap in the dashboard's level selector. An `impeccable`-driven UI polish pass already happened once (Day 4). |
-| Performance & Code Quality | 10% | **8–9 / 10** | `gts` (Google's own style config) enforced throughout, clean `lint`/`typecheck`, 70 passing automated tests as the sole verification method (no unverified manual claims), and stress-tested concurrency behavior with honestly-reported latency numbers and a documented capacity ceiling rather than a hidden one. |
+| Performance & Code Quality | 10% | **8–9 / 10** | `gts` (Google's own style config) enforced throughout, clean `lint`/`typecheck`, 71 passing automated tests as the sole verification method (no unverified manual claims), and stress-tested concurrency behavior with honestly-reported latency numbers and a documented capacity ceiling rather than a hidden one. |
 
 **Total estimate: ~86–96 / 100**, up from the pre-§1a-closure ~79–90 estimate. The remaining
 width is driven mostly by Innovation (the single most subjective criterion).

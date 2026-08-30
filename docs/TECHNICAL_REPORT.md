@@ -175,7 +175,7 @@ system.
 | # | Objective | Target | Measured |
 |---|---|---|---|
 | NF1 | No request ever leaves the deployed infrastructure to a third-party AI API | Zero external AI calls | Verified by code inspection — `lib/llm.ts`/`lib/embeddings.ts` only ever call `localhost:11434` / an in-process model |
-| NF2 | Every capability backed by an automated test, not a manual claim | 100% of stated capabilities test-covered | 70/70 tests passing (23 unit, 44 e2e, 3 stress) at time of writing |
+| NF2 | Every capability backed by an automated test, not a manual claim | 100% of stated capabilities test-covered | 71/71 tests passing (24 unit, 44 e2e, 3 stress) at time of writing |
 | NF3 | Input validation on every mutating/queryable route | No malformed input ever reaches business logic | Zod schema validation on every route; verified by `tests/e2e/input-validation.spec.ts` |
 | NF4 | No unhandled server exception on LLM failure | Every LLM-call failure path returns a well-formed response | 503 JSON on intent-extraction timeout; graceful in-band fallback text on streaming failure |
 | NF5 | Zero-budget hosting | No paid tier of any kind | Local execution + free, no-account Cloudflare Tunnel |
@@ -734,12 +734,12 @@ GET /api/recommend?limit=N
 `MAX_LIMIT`). Output: `{recommendations: [{id, title, type, category, description, skillsTaught,
 level, similarity, score, levelMismatch}]}`, sorted descending by `score`.
 
-**Algorithms used.** Cosine similarity ranking with an additive level-mismatch penalty — full
+**Algorithms used.** Cosine similarity ranking with a multiplicative level-mismatch penalty — full
 mathematical treatment in §4.1. Set-based exclusion of completed items (O(1) membership test per
 candidate via a `Set<string>`).
 
 **Mathematical foundations.** See §4.1 for the complete derivation of the scoring formula
-$\text{score}(v) = \cos(\mathbf{g}, \mathbf{e}_v) - |\Delta_{\text{level}}| \cdot 0.15$.
+$\text{score}(v) = \cos(\mathbf{g}, \mathbf{e}_v) \cdot (1 - |\Delta_{\text{level}}| \cdot 0.15)$.
 
 **Edge cases.** A learner with an empty `goal` but non-empty `interests` is still a valid ranking
 input (`goalText` is constructed from both fields together, so an interests-only learner still
@@ -1403,7 +1403,7 @@ This is the single most important formula in the system — every ranking, every
 explanation ultimately depends on it.
 
 $$
-\text{score}(v) = \cos(\mathbf{g}, \mathbf{e}_v) \;-\; \left|\, \text{rank}(\ell_v) - \hat{r} \,\right| \cdot \lambda
+\text{score}(v) = \cos(\mathbf{g}, \mathbf{e}_v) \cdot \left(1 \;-\; \left|\, \text{rank}(\ell_v) - \hat{r} \,\right| \cdot \lambda\right)
 $$
 
 **Variable definitions:**
@@ -1422,26 +1422,44 @@ $$
 **Derivation / why this specific form.** The design requirement (SRS FR-3.3/FR-3.4, stated
 directly in the code's own docstring) is: *a level mismatch should penalize, never exclude* — an
 ambitious beginner should still see an advanced "stretch" item, just ranked below an equally
-relevant item at their own level. An **additive linear penalty** on the similarity score is the
-simplest function satisfying that requirement: it strictly decreases the score as $|\Delta_{\text{level}}|$
-grows (0, 1, or 2 tiers away), never zeroes it out, and its magnitude ($\lambda = 0.15$) was chosen
-so that a two-tier mismatch ($|\Delta| = 2 \Rightarrow$ penalty $= 0.30$) is large enough to
-meaningfully reorder items whose *raw* similarity gap is smaller than that (which is the common
-case — cosine similarities between a goal and any remotely-relevant item in this catalog
-empirically cluster in a fairly narrow band, roughly $0.25$–$0.65$, see the item-types stress-test
-ranking output captured during development), while a one-tier mismatch (penalty $0.15$) still
-lets a *much* more similar one-tier-off item outrank a barely-similar exact-level-match item —
-i.e. relevance still dominates for large similarity gaps, and level match only acts as a
-tie-breaker-strength nudge for close calls. This is a **hand-tuned constant**, not derived from a
-formal optimization procedure (there is no labeled "correct ranking" dataset to fit $\lambda$
-against) — stated plainly as an engineering judgment call, consistent with this project's stated
-practice of not overclaiming rigor it doesn't have.
+relevant item at their own level. The penalty is **multiplicative** — a per-tier relative discount
+applied to the item's own similarity — not an additive subtraction. It strictly decreases the score
+as $|\Delta_{\text{level}}|$ grows (0, 1, or 2 tiers away), never zeroes it out, and its magnitude
+($\lambda = 0.15$, i.e. a 15% discount per tier) was chosen so that a two-tier mismatch
+($|\Delta| = 2 \Rightarrow$ a 30% discount) is large enough to meaningfully reorder items whose
+*relative* similarity gap is smaller than that, while a one-tier mismatch (15% discount) still lets
+a *much* more similar one-tier-off item outrank a barely-similar exact-level-match one.
+
+**This form replaced an earlier additive version, $\text{score}(v) = \cos(\mathbf{g}, \mathbf{e}_v) - |\Delta_{\text{level}}| \cdot \lambda$,
+after live testing surfaced a real failure it produced.** A flat subtraction removes the *same
+absolute amount* from every item regardless of how relevant that item actually is — which means it
+disproportionately crushes a highly relevant item relative to its own score, while barely touching
+a weakly relevant one. Tested against a real goal ("I want to become a data scientist, machine
+learning and statistics", learner level INTERMEDIATE), this let a barely-related course at the
+learner's own level (similarity $0.305$, no mismatch, additive score $0.305$) outrank the catalog's
+own **"Machine Learning Fundamentals"** course (similarity $0.454$, one tier off, additive score
+$0.454 - 0.15 = 0.304$) — a strongly on-topic course losing to a weakly related one by a hair, on a
+goal that named its own subject. Because the generated path only seeds from the top 5 ranked items
+(§4.4b), this wasn't just a ranking-order curiosity: the course literally named for the learner's
+stated goal never made it into their roadmap at all. The multiplicative form fixes this
+structurally, not by re-tuning $\lambda$: the same case now scores $0.454 \times 0.85 = 0.386$ for
+the mismatched course versus $0.305$ for the unrelated one — correctly ranking the relevant course
+first — because the discount is now proportional to what it's discounting, so it can never let a
+weak match leapfrog a strong one purely on level. Covered by a regression test
+(`tests/unit/recommend.test.ts`, "lets a strongly relevant, one-tier-off course outrank a barely
+relevant, level-matched one"). This remains a **hand-tuned constant**, not derived from a formal
+optimization procedure (there is no labeled "correct ranking" dataset to fit $\lambda$ against) —
+stated plainly as an engineering judgment call, consistent with this project's stated practice of
+not overclaiming rigor it doesn't have; what changed is the *shape* of the penalty, found wrong by
+testing against a real goal rather than synthetic cases, which is the same discipline applied
+throughout this project's fix history (§5.7's Ollama hang, §7's prompt-injection hole).
 
 **Real-world interpretation.** Two items with identical textual relevance to the goal, one at the
-learner's level and one two tiers away, will have the same-level item preferred by exactly
-$0.30$ score units — roughly the width of a "moderate" similarity band in this system's own
+learner's level and one two tiers away, will have the same-level item preferred by exactly a 30%
+relative margin — roughly the width of a "moderate" similarity band in this system's own
 `similarityBucket` quantization (§3.6), i.e. the penalty is calibrated to be *comparable in
-magnitude* to a full similarity-bucket step, which is what makes it "matter" without dominating.
+magnitude* to a full similarity-bucket step, which is what makes it "matter" without dominating —
+while now scaling with the item's own relevance instead of being a fixed absolute amount.
 
 **Constraints / assumptions.** Assumes $\mathbf{g}$ and $\mathbf{e}_v$ are both **unit-normalized**
 (true by construction — see §4.3); if this assumption were violated, cosine similarity would still
@@ -1450,10 +1468,11 @@ remain normalized — the code takes this dependency as a hard precondition of t
 function, not something re-validated at every call site (a documented internal invariant, not an
 externally-enforced contract).
 
-**Numerical stability.** Both terms are bounded, well-conditioned floating-point quantities (a
-dot product of two unit vectors, and a small integer-valued difference times a constant) — there
-is no risk of overflow, underflow, or catastrophic cancellation anywhere in this formula, at
-32/64-bit float precision.
+**Numerical stability.** Both factors are bounded, well-conditioned floating-point quantities (a
+dot product of two unit vectors, and $1$ minus a small integer-valued difference times a constant,
+which stays comfortably positive across the whole valid $\Delta_{\text{level}} \in \{0,1,2\}$
+range) — there is no risk of overflow, underflow, or catastrophic cancellation anywhere in this
+formula, at 32/64-bit float precision.
 
 **Computational tradeoffs.** $O(1)$ per item after the embedding is known (the dot product is
 $O(384)$, a constant for this system since embedding dimensionality never varies) — the real cost
@@ -1721,7 +1740,7 @@ function rankCourses(learner, courses, completedIds):
         if course.id in completedIds: continue
         similarity = cosineSimilarity(learner.goalEmbedding, course.embedding)
         levelDelta = abs(LEVEL_RANK[course.level] - learnerRank)
-        score = similarity - levelDelta * 0.15
+        score = similarity * (1 - levelDelta * 0.15)
         candidates.append({course, similarity, score, levelMismatch: levelDelta > 0})
     return sort(candidates, key=score, descending=True)
 ```
@@ -2911,7 +2930,7 @@ single error path rather than only the ones already known to be weak.
 
 | # | Equation | Section |
 |---|---|---|
-| 1 | $\text{score}(v) = \cos(\mathbf{g}, \mathbf{e}_v) - \lvert\Delta_{\text{level}}\rvert \cdot 0.15$ | §4.1 |
+| 1 | $\text{score}(v) = \cos(\mathbf{g}, \mathbf{e}_v) \cdot (1 - \lvert\Delta_{\text{level}}\rvert \cdot 0.15)$ | §4.1 |
 | 2 | $\cos(\mathbf{a},\mathbf{b}) = \dfrac{\mathbf{a}\cdot\mathbf{b}}{\lVert\mathbf{a}\rVert\lVert\mathbf{b}\rVert} \;=\; \mathbf{a}\cdot\mathbf{b}$ (when unit-normalized) | §4.2 |
 | 3 | $\tau_{\text{refilled}} = \min(C, \tau + \frac{\Delta t}{T}R)$ | §4.4 |
 | 4 | $t_{\text{retry}} = \lceil \frac{1-\tau_{\text{refilled}}}{R}\cdot\frac{T}{1000}\rceil$ | §4.4 |
@@ -2985,12 +3004,12 @@ instance local inference stops keeping up.
 This system is a single-process Next.js web application implementing an AI-powered personalized
 learning path recommender entirely on self-hosted models (`llama3.2:3b` via Ollama,
 `all-MiniLM-L6-v2` via `@huggingface/transformers`), backed by a SQLite database (via Prisma) and
-verified exclusively through an automated Playwright test suite (23 unit, 44 end-to-end, 3 stress
-specs, 70 total, all passing). It converts a learner's natural-language goal into a structured
+verified exclusively through an automated Playwright test suite (24 unit, 44 end-to-end, 3 stress
+specs, 71 total, all passing). It converts a learner's natural-language goal into a structured
 profile (via LLM-based intent extraction with an explicit clarification-vs-commit decision rule),
 ranks a 106-item catalog (courses, projects, and assessments, structurally unified under one
-`type`-discriminated data model) by cosine similarity between goal and item embeddings with an
-additive level-mismatch penalty, sequences the top-ranked items into a prerequisite-respecting,
+`type`-discriminated data model) by cosine similarity between goal and item embeddings with a
+multiplicative level-mismatch penalty, sequences the top-ranked items into a prerequisite-respecting,
 depth-bucketed milestone path via a three-stage graph pipeline (closure → Kahn's-algorithm
 topological sort → clamped depth-bucketing), and explains each recommendation through a
 retrieval-augmented, structurally- and delimiter-defended prompt construction verified against a

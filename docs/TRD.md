@@ -83,7 +83,12 @@ model Progress {
 2. Cosine-similarity rank against cached course embeddings.
 3. Filter out courses already `complete` in `Progress`.
 4. Re-weight by level match (penalize a level mismatch rather than hard-excluding, so an
-   ambitious beginner still sees a stretch course flagged as such).
+   ambitious beginner still sees a stretch course flagged as such). The penalty is
+   **multiplicative** (`score = similarity * (1 - levelDelta * 0.15)`), not a flat subtraction —
+   scaling the penalty by the item's own similarity keeps a strongly relevant, one-tier-off item
+   resistant to being buried under a barely relevant, level-matched one — a flat subtraction let
+   this actually happen for a real "machine learning" goal (see `docs/TECHNICAL_REPORT.md` §4.1
+   for the full derivation and the discovered failure case).
 
 ### 4.2 Path generation
 1. Take the top-N ranked courses from §4.1.

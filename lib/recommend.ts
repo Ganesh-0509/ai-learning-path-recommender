@@ -9,6 +9,16 @@ export type RankedCourse<T extends CourseLike> = {
   levelMismatch: boolean;
 };
 
+/** A relative (multiplicative) discount, not an absolute subtraction — a flat
+ * subtraction penalizes a highly-relevant item by the same absolute amount as
+ * a barely-relevant one, which can let a barely-relevant, level-matched item
+ * outrank a strongly-relevant, one-tier-off item (observed: a goal centered
+ * on "machine learning" ranked "Machine Learning Fundamentals" — one tier
+ * off, similarity 0.454 — below an unrelated same-level course at
+ * similarity 0.305, so the course never made it into the generated path at
+ * all). Scaling the penalty by the item's own similarity keeps a strong
+ * match resistant to being buried by a level mismatch, while still ordering
+ * an exact-level match above an otherwise-identical mismatched one. */
 const LEVEL_MISMATCH_PENALTY = 0.15;
 const MIN_LEVEL_RANK = 0;
 const MAX_LEVEL_RANK = 2;
@@ -78,7 +88,8 @@ export function rankCourses<T extends CourseLike>(
           ? CONTENT_PREFERENCE_BONUS
           : 0;
       const score =
-        similarity - levelDelta * LEVEL_MISMATCH_PENALTY + preferenceBonus;
+        similarity * (1 - levelDelta * LEVEL_MISMATCH_PENALTY) +
+        preferenceBonus;
       return {course, similarity, score, levelMismatch};
     })
     .sort((a, b) => b.score - a.score);

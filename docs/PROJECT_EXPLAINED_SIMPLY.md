@@ -121,9 +121,9 @@ requests too fast and overloading the system — like a "one ticket per person p
 ticket counter.
 
 **Automated test / test suite** — Instead of a human clicking around the app to check it still
-works after every change, the team wrote 70 small programs that each check one specific thing
+works after every change, the team wrote 71 small programs that each check one specific thing
 automatically (e.g. "does marking a course complete actually remove it from future
-recommendations?"). All 70 pass, every time, which is how the team can say the app works without
+recommendations?"). All 71 pass, every time, which is how the team can say the app works without
 just eyeballing it.
 
 **Stress test** — A special kind of automated test that simulates many people using the app *at

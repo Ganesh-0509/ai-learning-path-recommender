@@ -47,6 +47,22 @@ test('rankCourses penalizes but does not exclude a level mismatch', () => {
   assert.ok(ranked[1].score < ranked[0].score);
 });
 
+test('rankCourses lets a strongly relevant, one-tier-off course outrank a barely relevant, level-matched one', () => {
+  // Regression test: a flat additive penalty could bury a highly relevant
+  // mismatched item under a barely relevant matched one (observed with a
+  // real "machine learning" goal outranking "Machine Learning Fundamentals"
+  // — one tier off — below an unrelated same-level course). The penalty
+  // must scale with the item's own similarity, not be a fixed subtraction.
+  const learner = {goalEmbedding: [1, 0], level: 'BEGINNER' as const};
+  const courses = [
+    course('weak-match', [0.305, 0], 'BEGINNER'),
+    course('strong-mismatch', [0.454, 0], 'INTERMEDIATE'),
+  ];
+  const ranked = rankCourses(learner, courses, new Set());
+  assert.equal(ranked[0].course.id, 'strong-mismatch');
+  assert.equal(ranked[1].course.id, 'weak-match');
+});
+
 test('rankCourses applies a levelAdjustment on top of the stated level', () => {
   const courses = [
     course('beginner', [1, 0], 'BEGINNER'),

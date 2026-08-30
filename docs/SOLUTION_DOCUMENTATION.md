@@ -228,10 +228,10 @@ verified property.
 
 ## 8. Verification
 
-Every capability above is backed by a passing automated test, not a manual claim — 23 unit specs
+Every capability above is backed by a passing automated test, not a manual claim — 24 unit specs
 (pure ranking/path-generation/rate-limit logic) and 44 Playwright end-to-end specs (API-layer,
 real-browser, security/adversarial) plus 3 dedicated stress specs, including 7 e2e flows that
-exercise the actual local LLM; all 70 pass via `npm test` (`test:e2e` then `test:stress`, run
+exercise the actual local LLM; all 71 pass via `npm test` (`test:e2e` then `test:stress`, run
 sequentially — see below for why that ordering matters). Stress testing (`tests/stress/`)
 simulates concurrent learners with independent cookie jars, not one client racing itself: 20
 concurrent learners hitting `/api/recommend` and `/api/progress` completed with
